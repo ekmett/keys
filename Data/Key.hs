@@ -73,6 +73,7 @@ import Data.Functor.Identity
 import Data.Functor.Bind
 import Data.Functor.Compose
 import Data.Functor.Product
+import Data.Functor.Coproduct
 import Data.Foldable
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -125,14 +126,13 @@ class Lookup f where
 lookupDefault :: Indexable f => Key f -> f a -> Maybe a
 lookupDefault k t = Just (index t k)
 
--- * Adjust
+-- * Adjustable
 
-class Adjustable f where
+class Functor f => Adjustable f where
   adjust :: (a -> a) -> Key f -> f a -> f a
 
   replace :: Key f -> a -> f a -> f a
   replace k v = adjust (const v) k
-
 
 -- * FoldableWithKey
 
@@ -540,6 +540,20 @@ instance Ix i => Lookup (UArray i) where
 instance Ix i => FoldableWithKey (UArray i) where
   foldrWithKey f z = Prelude.foldr (uncurry f) z . IArray.assocs
 -}
+
+type instance Key (Coproduct f g) = (Key f, Key g)
+
+instance (Indexable f, Indexable g) => Indexable (Coproduct f g) where
+  index (Coproduct (Left a)) (x,_) = index a x 
+  index (Coproduct (Right b)) (_,y) = index b y
+
+instance (Lookup f, Lookup g) => Lookup (Coproduct f g) where
+  lookup (x, _) (Coproduct (Left a)) = lookup x a
+  lookup (_, y) (Coproduct (Right b)) = lookup y b
+
+instance (Adjustable f, Adjustable g) => Adjustable (Coproduct f g) where
+  adjust f (x,_) (Coproduct (Left a)) = Coproduct (Left (adjust f x a))
+  adjust f (_,y) (Coproduct (Right b)) = Coproduct (Right (adjust f y b))
 
 type instance Key (Product f g) = Either (Key f) (Key g)
 
