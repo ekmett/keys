@@ -9,13 +9,16 @@ module Data.Key (
   , keyed -- :: Keyed f => f a -> f (Key f, a)
   , apWithKey
 
-  -- * Indexing
-  , Index(..)
+  -- * Indexableing
+  , Indexable(..)
   , (!)
 
   -- * Safe Lookup
   , Lookup(..)
   , lookupDefault
+
+  -- * Adjustable
+  , Adjustable(..)
 
   -- * FoldableWithKey
   , FoldableWithKey(..)
@@ -69,6 +72,7 @@ import Data.Array (Array)
 import Data.Functor.Identity
 import Data.Functor.Bind
 import Data.Functor.Compose
+import Data.Functor.Product
 import Data.Foldable
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -76,8 +80,8 @@ import Data.Ix hiding (index)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
-import Data.Monoid as Monoid
-import Data.Semigroup
+import Data.Monoid as Monoid hiding (Product)
+import Data.Semigroup hiding (Product)
 import Data.Semigroup.Foldable
 import Data.Semigroup.Traversable
 import Data.Sequence (Seq, ViewL(..), viewl)
@@ -105,12 +109,12 @@ apWithKey :: (Keyed f, Applicative f) => f (Key f -> a -> b) -> f a -> f b
 apWithKey ff fa = mapWithKey (\k f -> f k) ff <*> fa
 {-# INLINE apWithKey #-}
 
--- * Index
+-- * Indexable
 
-class Index f where
+class Indexable f where
   index :: f a -> Key f -> a
 
-(!) :: Index f => f a -> Key f -> a
+(!) :: Indexable f => f a -> Key f -> a
 (!) = index
 
 -- * Lookup
@@ -118,14 +122,23 @@ class Index f where
 class Lookup f where
   lookup :: Key f -> f a -> Maybe a
 
-lookupDefault :: Index f => Key f -> f a -> Maybe a
+lookupDefault :: Indexable f => Key f -> f a -> Maybe a
 lookupDefault k t = Just (index t k)
+
+-- * Adjust
+
+class Adjustable f where
+  adjust :: (a -> a) -> Key f -> f a -> f a
+
+  replace :: Key f -> a -> f a -> f a
+  replace k v = adjust (const v) k
+
 
 -- * FoldableWithKey
 
 class Foldable t => FoldableWithKey t where
-  toIndexedList :: t a -> [(Key t, a)]
-  toIndexedList = foldrWithKey (\k v t -> (k,v):t) []
+  toKeyedList :: t a -> [(Key t, a)]
+  toKeyedList = foldrWithKey (\k v t -> (k,v):t) []
 
   foldMapWithKey :: Monoid m => (Key t -> a -> m) -> t a -> m
   foldMapWithKey f = foldrWithKey (\k v -> mappend (f k v)) mempty
@@ -230,7 +243,6 @@ forWithKeyM :: (TraversableWithKey t, Monad m) => t a -> (Key t -> a -> m b) -> 
 forWithKeyM = flip mapWithKeyM
 {-# INLINE forWithKeyM #-}
 
-
 -- left-to-right state transformer
 newtype StateL s a = StateL { runStateL :: s -> (s, a) }
 
@@ -297,11 +309,15 @@ foldMapWithKey1Default f = getConst . traverseWithKey1 (\k -> Const . f k)
 
 type instance Key Identity = ()
 
-instance Index Identity where
+instance Indexable Identity where
   index (Identity a) _ = a
 
 instance Lookup Identity where
   lookup _ (Identity a) = Just a
+
+instance Adjustable Identity where
+  adjust f _ (Identity a) = Identity (f a)
+  replace _ b _ = Identity b
 
 instance Keyed Identity where
   mapWithKey f = Identity . f () . runIdentity
@@ -320,7 +336,7 @@ instance TraversableWithKey1 Identity where
 
 type instance Key (IdentityT m) = Key m
 
-instance Index m => Index (IdentityT m) where
+instance Indexable m => Indexable (IdentityT m) where
   index (IdentityT m) i = index m i
 
 instance Lookup m => Lookup (IdentityT m) where
@@ -346,7 +362,7 @@ type instance Key ((->)a) = a
 instance Keyed ((->)a) where
   mapWithKey = (<*>)
 
-instance Index ((->)a) where
+instance Indexable ((->)a) where
   index = id
   
 instance Lookup ((->)a) where
@@ -357,7 +373,7 @@ type instance Key (ReaderT e m) = (e, Key m)
 instance Keyed m => Keyed (ReaderT e m) where
   mapWithKey f (ReaderT m) = ReaderT $ \k -> mapWithKey (f . (,) k) (m k)
 
-instance Index m => Index (ReaderT e m) where
+instance Indexable m => Indexable (ReaderT e m) where
   index (ReaderT f) (e,k) = index (f e) k
 
 instance Lookup m => Lookup (ReaderT e m) where
@@ -368,7 +384,7 @@ type instance Key (TracedT s w) = (s, Key w)
 instance Keyed w => Keyed (TracedT s w) where
   mapWithKey f = TracedT . mapWithKey (\k' g k -> f (k, k') (g k)) . runTracedT 
 
-instance Index w => Index (TracedT s w) where
+instance Indexable w => Indexable (TracedT s w) where
   index (TracedT w) (e,k) = index w k e 
 
 instance Lookup w => Lookup (TracedT s w) where
@@ -385,18 +401,21 @@ instance FoldableWithKey IntMap where
 instance TraversableWithKey IntMap where
   traverseWithKey f = fmap IntMap.fromDistinctAscList . traverse (\(k, v) -> (,) k <$> f k v) . IntMap.toAscList
 
-instance Index IntMap where
+instance Indexable IntMap where
   index = (IntMap.!)
 
 instance Lookup IntMap where
   lookup = IntMap.lookup
+
+instance Adjustable IntMap where
+  adjust = IntMap.adjust
 
 type instance Key (Compose f g) = (Key f, Key g)
 
 instance (Keyed f, Keyed g) => Keyed (Compose f g) where
   mapWithKey f = Compose . mapWithKey (\k -> mapWithKey (f . (,) k)) . getCompose
 
-instance (Index f, Index g) => Index (Compose f g) where
+instance (Indexable f, Indexable g) => Indexable (Compose f g) where
   index (Compose fg) (i,j) = index (index fg i) j
 
 instance (Lookup f, Lookup g) => Lookup (Compose f g) where
@@ -431,21 +450,29 @@ instance TraversableWithKey [] where
     go _ [] _ = pure []
     go f (x:xs) n = (:) <$> f n x <*> (go f xs $! (n + 1))
 
-instance Index [] where
+instance Indexable [] where
   index = (!!)
 
 instance Lookup [] where
   lookup = fmap listToMaybe . drop
 
+instance Adjustable [] where
+  adjust f 0 (x:xs) = f x : xs
+  adjust _ _ [] = []
+  adjust f n (x:xs) = n' `seq` x : adjust f n' xs where n' = n - 1
+
 type instance Key Seq = Int
 
-instance Index Seq where
+instance Indexable Seq where
   index = Seq.index
 
 instance Lookup Seq where
   lookup i s = case viewl (Seq.drop i s) of
     EmptyL -> Nothing
     a :< _ -> Just a
+
+instance Adjustable Seq where
+  adjust = Seq.adjust
 
 instance Keyed Seq where
   mapWithKey = Seq.mapWithIndex
@@ -461,7 +488,7 @@ type instance Key (Map k) = k
 instance Keyed (Map k) where
   mapWithKey = Map.mapWithKey
 
-instance Ord k => Index (Map k) where
+instance Ord k => Indexable (Map k) where
   index = (Map.!)
 
 instance Ord k => Lookup (Map k) where
@@ -473,12 +500,15 @@ instance FoldableWithKey (Map k) where
 instance TraversableWithKey (Map k) where
   traverseWithKey f = fmap Map.fromDistinctAscList . traverse (\(k, v) -> (,) k <$> f k v) . Map.toAscList
 
+instance Ord k => Adjustable (Map k) where
+  adjust = Map.adjust
+
 type instance Key (Array i) = i
   
 instance Ix i => Keyed (Array i) where
   mapWithKey f arr = Array.listArray (Array.bounds arr) $ map (uncurry f) $ Array.assocs arr
   
-instance Ix i => Index (Array i) where
+instance Ix i => Indexable (Array i) where
   index = (Array.!)
 
 instance Ix i => Lookup (Array i) where
@@ -491,11 +521,15 @@ instance Ix i => FoldableWithKey (Array i) where
 
 instance Ix i => TraversableWithKey (Array i) where
   traverseWithKey f arr = Array.listArray (Array.bounds arr) <$> traverse (uncurry f) (Array.assocs arr)
+
+instance Ix i => Adjustable (Array i) where
+  adjust f i arr  = arr Array.// [(i, f (arr Array.! i))]
+  replace i b arr = arr Array.// [(i, b)]
   
 {-
 type instance Key (UArray i) = i
 
-instance Ix i => Index (UArray i) where
+instance Ix i => Indexable (UArray i) where
   index = (IArray.!)
 
 instance Ix i => Lookup (UArray i) where
@@ -506,3 +540,36 @@ instance Ix i => Lookup (UArray i) where
 instance Ix i => FoldableWithKey (UArray i) where
   foldrWithKey f z = Prelude.foldr (uncurry f) z . IArray.assocs
 -}
+
+type instance Key (Product f g) = Either (Key f) (Key g)
+
+instance (Keyed f, Keyed g) => Keyed (Product f g) where
+  mapWithKey f (Pair a b) = Pair (mapWithKey (f . Left) a) (mapWithKey (f . Right) b)
+
+instance (Indexable f, Indexable g) => Indexable (Product f g) where
+  index (Pair a _) (Left i)  = index a i 
+  index (Pair _ b) (Right j) = index b j
+
+instance (Lookup f, Lookup g) => Lookup (Product f g) where
+  lookup (Left i) (Pair a _) = lookup i a
+  lookup (Right j) (Pair _ b) = lookup j b
+
+-- interleave?
+instance (FoldableWithKey f, FoldableWithKey g) => FoldableWithKey (Product f g) where
+  foldMapWithKey f (Pair a b) = foldMapWithKey (f . Left) a `mappend` foldMapWithKey (f . Right) b
+
+instance (FoldableWithKey1 f, FoldableWithKey1 g) => FoldableWithKey1 (Product f g) where
+  foldMapWithKey1 f (Pair a b) = foldMapWithKey1 (f . Left) a <> foldMapWithKey1 (f . Right) b
+
+instance (TraversableWithKey f, TraversableWithKey g) => TraversableWithKey (Product f g) where
+  traverseWithKey f (Pair a b) = Pair <$> traverseWithKey (f . Left) a <*> traverseWithKey (f . Right) b
+
+instance (TraversableWithKey1 f, TraversableWithKey1 g) => TraversableWithKey1 (Product f g) where
+  traverseWithKey1 f (Pair a b) = Pair <$> traverseWithKey1 (f . Left) a <.> traverseWithKey1 (f . Right) b
+
+instance (Adjustable f, Adjustable g) => Adjustable (Product f g) where
+  adjust f (Left i) (Pair a b)  = Pair (adjust f i a) b
+  adjust f (Right j) (Pair a b) = Pair a (adjust f j b)
+  replace (Left i) v (Pair a b) = Pair (replace i v a) b
+  replace (Right j) v (Pair a b) = Pair a (replace j v b)
+
