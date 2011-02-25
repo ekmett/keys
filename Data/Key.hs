@@ -7,9 +7,14 @@ module Data.Key (
   , Keyed(..)
   , (<#$>) -- :: Keyed f => (Key f -> a -> b) -> f a -> f b
   , keyed -- :: Keyed f => f a -> f (Key f, a)
-  , apWithKey
 
-  -- * Indexableing
+  -- * Zippable functors
+  , Zip(..)
+
+  -- * Zipping keyed functors 
+  , ZipWithKey(..)
+
+  -- * Indexable functors
   , Indexable(..)
   , (!)
 
@@ -88,7 +93,8 @@ import Data.Semigroup.Traversable
 import Data.Sequence (Seq, ViewL(..), viewl)
 import qualified Data.Sequence as Seq
 import Data.Traversable
-import Prelude hiding (lookup)
+import qualified Data.List as List
+import Prelude hiding (lookup, zip, zipWith)
 
 type family Key (f :: * -> *) 
 
@@ -96,6 +102,24 @@ type family Key (f :: * -> *)
 class Functor f => Keyed f where
   mapWithKey :: (Key f -> a -> b) -> f a -> f b
 
+class Functor f => Zip f where
+  zipWith :: (a -> b -> c) -> f a -> f b -> f c
+  zipWith f a b = uncurry f <$> zip a b
+
+  zip :: f a -> f b -> f (a, b)
+  zip = zipWith (,)
+
+  -- zip-like 'ap'
+  zap :: f (a -> b) -> f a -> f b
+  zap = zipWith id
+
+class (Keyed f, Zip f) => ZipWithKey f where
+  zipWithKey :: (Key f -> a -> b -> c) -> f a -> f b -> f c
+  zipWithKey f = zap . mapWithKey f
+
+  zapWithKey :: f (Key f -> a -> b) -> f a -> f b
+  zapWithKey = zipWithKey (\k f -> f k)
+  
 infixl 4 <#$>
 
 (<#$>) :: Keyed f => (Key f -> a -> b) -> f a -> f b
@@ -105,10 +129,6 @@ infixl 4 <#$>
 keyed :: Keyed f => f a -> f (Key f, a)
 keyed = mapWithKey (,)
 {-# INLINE keyed #-}
-
-apWithKey :: (Keyed f, Applicative f) => f (Key f -> a -> b) -> f a -> f b
-apWithKey ff fa = mapWithKey (\k f -> f k) ff <*> fa
-{-# INLINE apWithKey #-}
 
 -- * Indexable
 
@@ -319,6 +339,12 @@ instance Adjustable Identity where
   adjust f _ (Identity a) = Identity (f a)
   replace _ b _ = Identity b
 
+instance Zip Identity where
+  zipWith f (Identity a) (Identity b) = Identity (f a b)
+
+instance ZipWithKey Identity where
+  zipWithKey f (Identity a) (Identity b) = Identity (f () a b)
+
 instance Keyed Identity where
   mapWithKey f = Identity . f () . runIdentity
 
@@ -342,6 +368,12 @@ instance Indexable m => Indexable (IdentityT m) where
 instance Lookup m => Lookup (IdentityT m) where
   lookup i (IdentityT m) = lookup i m
 
+instance Zip m => Zip (IdentityT m) where
+  zipWith f (IdentityT m) (IdentityT n) = IdentityT (zipWith f m n)
+
+instance ZipWithKey m => ZipWithKey (IdentityT m) where
+  zipWithKey f (IdentityT m) (IdentityT n) = IdentityT (zipWithKey f m n)
+
 instance Keyed m => Keyed (IdentityT m) where
   mapWithKey f = IdentityT . mapWithKey f . runIdentityT 
 
@@ -362,6 +394,12 @@ type instance Key ((->)a) = a
 instance Keyed ((->)a) where
   mapWithKey = (<*>)
 
+instance Zip ((->)a) where
+  zipWith f g h a = f (g a) (h a)
+
+instance ZipWithKey ((->)a) where
+  zipWithKey f g h a = f a (g a) (h a)
+
 instance Indexable ((->)a) where
   index = id
   
@@ -369,6 +407,14 @@ instance Lookup ((->)a) where
   lookup i f = Just (f i)
 
 type instance Key (ReaderT e m) = (e, Key m)
+
+instance Zip m => Zip (ReaderT e m) where
+  zipWith f (ReaderT m) (ReaderT n) = ReaderT $ \a -> 
+    zipWith f (m a) (n a)
+
+instance ZipWithKey m => ZipWithKey (ReaderT e m) where
+  zipWithKey f (ReaderT m) (ReaderT n) = ReaderT $ \a -> 
+    zipWithKey (f . (,) a) (m a) (n a)
 
 instance Keyed m => Keyed (ReaderT e m) where
   mapWithKey f (ReaderT m) = ReaderT $ \k -> mapWithKey (f . (,) k) (m k)
@@ -381,6 +427,14 @@ instance Lookup m => Lookup (ReaderT e m) where
 
 type instance Key (TracedT s w) = (s, Key w)
 
+instance Zip w => Zip (TracedT s w) where
+  zipWith f (TracedT u) (TracedT v) = TracedT $ 
+    zipWith (\a b s -> f (a s) (b s)) u v
+
+instance ZipWithKey w => ZipWithKey (TracedT s w) where
+  zipWithKey f (TracedT u) (TracedT v) = TracedT $ 
+    zipWithKey (\k a b s -> f (s, k) (a s) (b s)) u v
+
 instance Keyed w => Keyed (TracedT s w) where
   mapWithKey f = TracedT . mapWithKey (\k' g k -> f (k, k') (g k)) . runTracedT 
 
@@ -391,6 +445,12 @@ instance Lookup w => Lookup (TracedT s w) where
   lookup (e,k) (TracedT w) = ($ e) <$> lookup k w
   
 type instance Key IntMap = Int
+
+instance Zip IntMap where
+  zipWith = IntMap.intersectionWith
+
+instance ZipWithKey IntMap where
+  zipWithKey = IntMap.intersectionWithKey
 
 instance Keyed IntMap where
   mapWithKey = IntMap.mapWithKey
@@ -411,6 +471,13 @@ instance Adjustable IntMap where
   adjust = IntMap.adjust
 
 type instance Key (Compose f g) = (Key f, Key g)
+
+instance (Zip f, Zip g) => Zip (Compose f g) where
+  zipWith f (Compose a) (Compose b) = Compose $ zipWith (zipWith f) a b
+
+instance (ZipWithKey f, ZipWithKey g) => ZipWithKey (Compose f g) where
+  zipWithKey f (Compose a) (Compose b) = Compose $ 
+    zipWithKey (zipWithKey . fmap f . (,)) a b
 
 instance (Keyed f, Keyed g) => Keyed (Compose f g) where
   mapWithKey f = Compose . mapWithKey (\k -> mapWithKey (f . (,) k)) . getCompose
@@ -435,20 +502,31 @@ instance (TraversableWithKey1 f, TraversableWithKey1 m) => TraversableWithKey1 (
 
 type instance Key [] = Int
 
-instance Keyed [] where
-  mapWithKey f0 xs0 = go f0 xs0 0 where
+instance Zip [] where
+  zip = List.zip
+  zipWith = List.zipWith
+
+instance ZipWithKey [] where
+  zipWithKey f = go 0 where
     go _ [] _ = []
-    go f (x:xs) n = f n x : (go f xs $! n)
+    go _ _ [] = []
+    go n (x:xs) (y:ys) = n' `seq` f n x y : go n' xs ys
+      where n' = n + 1 
+
+instance Keyed [] where
+  mapWithKey f xs0 = go xs0 0 where
+    go [] _ = []
+    go (x:xs) n = f n x : (go xs $! n)
 
 instance FoldableWithKey [] where
-  foldrWithKey f0 z0 xs0 = go f0 z0 xs0 0 where
-    go _ z [] _ = z
-    go f z (x:xs) n = f n x (go f z xs $! n)
+  foldrWithKey f z0 xs0 = go z0 xs0 0 where
+    go z [] _ = z
+    go z (x:xs) n = f n x (go z xs $! n)
 
 instance TraversableWithKey [] where
-  traverseWithKey f0 xs0 = go f0 xs0 0 where
-    go _ [] _ = pure []
-    go f (x:xs) n = (:) <$> f n x <*> (go f xs $! (n + 1))
+  traverseWithKey f xs0 = go xs0 0 where
+    go [] _ = pure []
+    go (x:xs) n = (:) <$> f n x <*> (go xs $! (n + 1))
 
 instance Indexable [] where
   index = (!!)
@@ -471,6 +549,13 @@ instance Lookup Seq where
     EmptyL -> Nothing
     a :< _ -> Just a
 
+instance Zip Seq where
+  zip = Seq.zip
+  zipWith = Seq.zipWith
+
+instance ZipWithKey Seq where
+  zipWithKey f a b = Seq.zipWith id (Seq.mapWithIndex f a) b
+
 instance Adjustable Seq where
   adjust = Seq.adjust
 
@@ -484,6 +569,12 @@ instance TraversableWithKey Seq where
   traverseWithKey f = fmap Seq.fromList . traverseWithKey f . toList
 
 type instance Key (Map k) = k
+
+instance Ord k => Zip (Map k) where
+  zipWith = Map.intersectionWith
+
+instance Ord k => ZipWithKey (Map k) where
+  zipWithKey = Map.intersectionWithKey
 
 instance Keyed (Map k) where
   mapWithKey = Map.mapWithKey
@@ -508,6 +599,7 @@ type instance Key (Array i) = i
 instance Ix i => Keyed (Array i) where
   mapWithKey f arr = Array.listArray (Array.bounds arr) $ map (uncurry f) $ Array.assocs arr
   
+-- a pleasant fiction
 instance Ix i => Indexable (Array i) where
   index = (Array.!)
 
