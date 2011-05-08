@@ -1,6 +1,6 @@
 name:          keys
 category:      Data Structures, Containers
-version:       0.2.3
+version:       0.2.4
 license:       BSD3
 cabal-version: >= 1.6
 license-file:  LICENSE
@@ -21,10 +21,10 @@ library
   build-depends: 
     array >= 0.3.0.2 && < 0.4,
     base >= 4 && < 4.4,
-    comonad-transformers >= 1.5.2.6 && < 1.6,
+    comonad-transformers >= 1.5.3 && < 1.6,
     containers >= 0.3 && < 0.5,
-    semigroups >= 0.3.4 && < 0.4,
-    semigroupoids >= 1.1.2 && < 1.2,
+    semigroups >= 0.4 && < 0.5,
+    semigroupoids >= 1.1.3 && < 1.2,
     transformers >= 0.2.0 && < 0.3
 
   exposed-modules:
