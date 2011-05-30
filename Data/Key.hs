@@ -516,12 +516,12 @@ instance ZipWithKey [] where
 instance Keyed [] where
   mapWithKey f xs0 = go xs0 0 where
     go [] _ = []
-    go (x:xs) n = f n x : (go xs $! n)
+    go (x:xs) n = f n x : (go xs $! (n + 1))
 
 instance FoldableWithKey [] where
   foldrWithKey f z0 xs0 = go z0 xs0 0 where
     go z [] _ = z
-    go z (x:xs) n = f n x (go z xs $! n)
+    go z (x:xs) n = f n x (go z xs $! (n + 1))
 
 instance TraversableWithKey [] where
   traverseWithKey f xs0 = go xs0 0 where

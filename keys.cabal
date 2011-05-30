@@ -1,6 +1,6 @@
 name:          keys
 category:      Data Structures, Containers
-version:       0.2.6
+version:       0.2.7
 license:       BSD3
 cabal-version: >= 1.6
 license-file:  LICENSE
