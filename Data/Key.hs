@@ -67,13 +67,12 @@ module Data.Key (
 
 import Control.Applicative
 import Control.Comonad.Trans.Traced
+import Control.Monad.Trans.Free
+import Control.Comonad.Trans.Cofree
 import Control.Monad.Trans.Identity
 import Control.Monad.Trans.Reader
 import qualified Data.Array as Array
 import Data.Array (Array)
--- import qualified Data.Array.IArray as IArray
--- import qualified Data.Array.Unboxed hiding (index)
--- import Data.Array.Unboxed (UArray)
 import Data.Functor.Identity
 import Data.Functor.Bind
 import Data.Functor.Compose
@@ -90,17 +89,28 @@ import Data.Monoid as Monoid hiding (Product)
 import Data.Semigroup hiding (Product)
 import Data.Semigroup.Foldable
 import Data.Semigroup.Traversable
-import Data.Sequence (Seq, ViewL(..), viewl)
+import Data.Sequence (Seq, ViewL(EmptyL), viewl, (|>))
 import qualified Data.Sequence as Seq
 import Data.Traversable
 import qualified Data.List as List
 import Prelude hiding (lookup, zip, zipWith)
 
+-- TODO: half of the functions manipulating Cofree and Free buil the keys in the wrong order
+
 type family Key (f :: * -> *) 
+type instance Key (Cofree f) = Seq (Key f)
+type instance Key (Free f) = Seq (Key f)
 
 -- * Keyed
 class Functor f => Keyed f where
   mapWithKey :: (Key f -> a -> b) -> f a -> f b
+
+instance Keyed f => Keyed (Free f) where
+  mapWithKey f (Pure a) = Pure (f Seq.empty a)
+  mapWithKey f (Free as) = Free (mapWithKey (mapWithKey . fmap f . flip (|>)) as)
+
+instance Keyed f => Keyed (Cofree f) where
+  mapWithKey f (a :< as) = f Seq.empty a :< mapWithKey (mapWithKey . fmap f . flip (|>)) as
 
 class Functor f => Zip f where
   zipWith :: (a -> b -> c) -> f a -> f b -> f c
@@ -113,12 +123,18 @@ class Functor f => Zip f where
   zap :: f (a -> b) -> f a -> f b
   zap = zipWith id
 
+instance Zip f => Zip (Cofree f) where
+  zipWith f (a :< as) (b :< bs) = f a b :< zipWith (zipWith f) as bs
+
 class (Keyed f, Zip f) => ZipWithKey f where
   zipWithKey :: (Key f -> a -> b -> c) -> f a -> f b -> f c
   zipWithKey f = zap . mapWithKey f
 
   zapWithKey :: f (Key f -> a -> b) -> f a -> f b
   zapWithKey = zipWithKey (\k f -> f k)
+
+instance ZipWithKey f => ZipWithKey (Cofree f) where
+  zipWithKey f (a :< as) (b :< bs) = f Seq.empty a b :< zipWithKey (zipWithKey . fmap f . flip (|>)) as bs
   
 infixl 4 <#$>
 
@@ -132,8 +148,13 @@ keyed = mapWithKey (,)
 
 -- * Indexable
 
-class Indexable f where
+class Lookup f => Indexable f where
   index :: f a -> Key f -> a
+
+instance Indexable f => Indexable (Cofree f) where
+  index (a :< as) key = case viewl key of 
+      EmptyL -> a
+      k Seq.:< ks -> index (index as k) ks
 
 (!) :: Indexable f => f a -> Key f -> a
 (!) = index
@@ -143,6 +164,20 @@ class Indexable f where
 class Lookup f where
   lookup :: Key f -> f a -> Maybe a
 
+instance Lookup f => Lookup (Cofree f) where
+  lookup key (a :< as) = case viewl key of 
+    EmptyL -> Just a
+    k Seq.:< ks -> lookup k as >>= lookup ks
+
+instance Lookup f => Lookup (Free f) where
+  lookup key (Pure a) 
+    | Seq.null key = Just a 
+    | otherwise = Nothing
+  lookup key (Free as) = case viewl key of 
+    k Seq.:< ks -> lookup k as >>= lookup ks
+    _ -> Nothing
+  
+    
 lookupDefault :: Indexable f => Key f -> f a -> Maybe a
 lookupDefault k t = Just (index t k)
 
@@ -153,6 +188,19 @@ class Functor f => Adjustable f where
 
   replace :: Key f -> a -> f a -> f a
   replace k v = adjust (const v) k
+
+instance Adjustable f => Adjustable (Free f) where
+  adjust f key as@(Pure a) 
+    | Seq.null key = Pure $ f a 
+    | otherwise = as
+  adjust f key aas@(Free as) = case viewl key of
+    k Seq.:< ks -> Free $ adjust (adjust f ks) k as
+    _           -> aas
+
+instance Adjustable f => Adjustable (Cofree f) where
+  adjust f key (a :< as) = case viewl key of
+    k Seq.:< ks -> a   :< adjust (adjust f ks) k as
+    _           -> f a :< as
 
 -- * FoldableWithKey
 
@@ -168,6 +216,13 @@ class Foldable t => FoldableWithKey t where
 
   foldlWithKey :: (b -> Key t -> a -> b) -> b -> t a -> b
   foldlWithKey f z t = appEndo (getDual (foldMapWithKey (\k a -> Dual (Endo (\b -> f b k a))) t)) z
+
+instance FoldableWithKey f => FoldableWithKey (Free f) where
+  foldMapWithKey f (Pure a) = f Seq.empty a
+  foldMapWithKey f (Free as) = foldMapWithKey (foldMapWithKey . fmap f . flip (|>)) as
+
+instance FoldableWithKey f => FoldableWithKey (Cofree f) where
+  foldMapWithKey f (a :< as) = f Seq.empty a `mappend` foldMapWithKey (foldMapWithKey . fmap f . flip (|>)) as
 
 foldrWithKey' :: FoldableWithKey t => (Key t -> a -> b -> b) -> b -> t a -> b
 foldrWithKey' f z0 xs = foldlWithKey f' id xs z0
@@ -226,6 +281,17 @@ findWithKey p = Monoid.getFirst . foldMapWithKey (\k x -> Monoid.First (if p k x
 class (Foldable1 t, FoldableWithKey t) => FoldableWithKey1 t where
   foldMapWithKey1 :: Semigroup m => (Key t -> a -> m) -> t a -> m
 
+-- TODO
+--instance Foldable f => Foldable1 (Cofree f) where
+--  foldMap1 f (a :< as) = appEndo (getDual . foldMap (Dual . diff . foldMap1 f)) (f a)
+
+instance FoldableWithKey1 f => FoldableWithKey1 (Cofree f) where
+  foldMapWithKey1 f (a :< as) = f Seq.empty a <> foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) as
+
+instance FoldableWithKey1 f => FoldableWithKey1 (Free f) where
+  foldMapWithKey1 f (Pure a) = f Seq.empty a
+  foldMapWithKey1 f (Free as) = foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) as
+  
 newtype Act f a = Act { getAct :: f a }
 
 instance Apply f => Semigroup (Act f a) where
@@ -254,6 +320,13 @@ class (Keyed t, FoldableWithKey t, Traversable t) => TraversableWithKey t where
 
   mapWithKeyM :: Monad m => (Key t -> a -> m b) -> t a -> m (t b)
   mapWithKeyM f = unwrapMonad . traverseWithKey (fmap WrapMonad . f) 
+
+instance TraversableWithKey f => TraversableWithKey (Cofree f) where
+  traverseWithKey f (a :< as) = (:<) <$> f Seq.empty a <*> traverseWithKey (traverseWithKey . fmap f . flip (|>)) as
+
+instance TraversableWithKey f => TraversableWithKey (Free f) where
+  traverseWithKey f (Pure a) = Pure <$> f Seq.empty a
+  traverseWithKey f (Free as) = Free <$> traverseWithKey (traverseWithKey . fmap f . flip (|>)) as
 
 forWithKey :: (TraversableWithKey t, Applicative f) => t a -> (Key t -> a -> f b) -> f (t b)
 forWithKey = flip traverseWithKey
@@ -320,6 +393,14 @@ foldMapWithKeyDefault f = getConst . traverseWithKey (fmap Const . f)
 -- * TraverableWithKey1
 class (Traversable1 t, FoldableWithKey1 t, TraversableWithKey t) => TraversableWithKey1 t where
   traverseWithKey1 :: Apply f => (Key t -> a -> f b) -> t a -> f (t b)
+
+-- instance TraversableWithKey f => TraversableWithKey1 (Cofree f) where
+instance TraversableWithKey1 f => TraversableWithKey1 (Cofree f) where
+  traverseWithKey1 f (a :< as) = (:<) <$> f Seq.empty a <.> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) as
+  
+instance TraversableWithKey1 f => TraversableWithKey1 (Free f) where
+  traverseWithKey1 f (Pure a) = Pure <$> f Seq.empty a
+  traverseWithKey1 f (Free as) = Free <$> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) as
 
 foldMapWithKey1Default :: (TraversableWithKey1 t, Semigroup m) => (Key t -> a -> m) -> t a -> m
 foldMapWithKey1Default f = getConst . traverseWithKey1 (\k -> Const . f k)
@@ -547,7 +628,7 @@ instance Indexable Seq where
 instance Lookup Seq where
   lookup i s = case viewl (Seq.drop i s) of
     EmptyL -> Nothing
-    a :< _ -> Just a
+    a Seq.:< _ -> Just a
 
 instance Zip Seq where
   zip = Seq.zip
@@ -618,21 +699,6 @@ instance Ix i => Adjustable (Array i) where
   adjust f i arr  = arr Array.// [(i, f (arr Array.! i))]
   replace i b arr = arr Array.// [(i, b)]
   
-{-
-type instance Key (UArray i) = i
-
-instance Ix i => Indexable (UArray i) where
-  index = (IArray.!)
-
-instance Ix i => Lookup (UArray i) where
-  lookup i arr
-    | inRange (IArray.bounds arr) i = Just (arr IArray.! i)
-    | otherwise = Nothing
-
-instance Ix i => FoldableWithKey (UArray i) where
-  foldrWithKey f z = Prelude.foldr (uncurry f) z . IArray.assocs
--}
-
 type instance Key (Coproduct f g) = (Key f, Key g)
 
 instance (Indexable f, Indexable g) => Indexable (Coproduct f g) where
@@ -659,6 +725,12 @@ instance (Indexable f, Indexable g) => Indexable (Product f g) where
 instance (Lookup f, Lookup g) => Lookup (Product f g) where
   lookup (Left i) (Pair a _) = lookup i a
   lookup (Right j) (Pair _ b) = lookup j b
+
+instance (Zip f, Zip g) => Zip (Product f g) where
+  zipWith f (Pair a b) (Pair c d) = Pair (zipWith f a c) (zipWith f b d)
+
+instance (ZipWithKey f, ZipWithKey g) => ZipWithKey (Product f g) where
+  zipWithKey f (Pair a b) (Pair c d) = Pair (zipWithKey (f . Left) a c) (zipWithKey (f . Right) b d)
 
 -- interleave?
 instance (FoldableWithKey f, FoldableWithKey g) => FoldableWithKey (Product f g) where
