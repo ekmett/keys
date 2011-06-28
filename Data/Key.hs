@@ -67,8 +67,8 @@ module Data.Key (
 
 import Control.Applicative
 import Control.Comonad.Trans.Traced
-import Control.Monad.Trans.Free
-import Control.Comonad.Trans.Cofree
+import Control.Monad.Free
+import Control.Comonad.Cofree
 import Control.Monad.Trans.Identity
 import Control.Monad.Trans.Reader
 import qualified Data.Array as Array
