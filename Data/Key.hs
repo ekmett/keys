@@ -84,6 +84,9 @@ import qualified Data.IntMap as IntMap
 import Data.Ix hiding (index)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Tree
+import Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (listToMaybe)
 import Data.Monoid as Monoid hiding (Product)
 import Data.Semigroup hiding (Product)
@@ -100,6 +103,8 @@ import Prelude hiding (lookup, zip, zipWith)
 type family Key (f :: * -> *) 
 type instance Key (Cofree f) = Seq (Key f)
 type instance Key (Free f) = Seq (Key f)
+type instance Key Tree = Seq Int
+type instance Key NonEmpty = Int
 
 -- * Keyed
 class Functor f => Keyed f where
@@ -111,6 +116,9 @@ instance Keyed f => Keyed (Free f) where
 
 instance Keyed f => Keyed (Cofree f) where
   mapWithKey f (a :< as) = f Seq.empty a :< mapWithKey (mapWithKey . fmap f . flip (|>)) as
+
+instance Keyed Tree where
+  mapWithKey f (Node a as) = Node (f Seq.empty a) (mapWithKey (mapWithKey . fmap f . flip (|>)) as)
 
 class Functor f => Zip f where
   zipWith :: (a -> b -> c) -> f a -> f b -> f c
@@ -126,6 +134,9 @@ class Functor f => Zip f where
 instance Zip f => Zip (Cofree f) where
   zipWith f (a :< as) (b :< bs) = f a b :< zipWith (zipWith f) as bs
 
+instance Zip Tree where
+  zipWith f (Node a as) (Node b bs) = Node (f a b) (zipWith (zipWith f) as bs)
+
 class (Keyed f, Zip f) => ZipWithKey f where
   zipWithKey :: (Key f -> a -> b -> c) -> f a -> f b -> f c
   zipWithKey f = zap . mapWithKey f
@@ -135,6 +146,9 @@ class (Keyed f, Zip f) => ZipWithKey f where
 
 instance ZipWithKey f => ZipWithKey (Cofree f) where
   zipWithKey f (a :< as) (b :< bs) = f Seq.empty a b :< zipWithKey (zipWithKey . fmap f . flip (|>)) as bs
+
+instance ZipWithKey Tree where
+  zipWithKey f (Node a as) (Node b bs) = f Seq.empty a b `Node` zipWithKey (zipWithKey . fmap f . flip (|>)) as bs
   
 infixl 4 <#$>
 
@@ -156,6 +170,11 @@ instance Indexable f => Indexable (Cofree f) where
       EmptyL -> a
       k Seq.:< ks -> index (index as k) ks
 
+instance Indexable Tree where
+  index (Node a as) key = case viewl key of 
+      EmptyL -> a
+      k Seq.:< ks -> index (index as k) ks
+
 (!) :: Indexable f => f a -> Key f -> a
 (!) = index
 
@@ -166,6 +185,11 @@ class Lookup f where
 
 instance Lookup f => Lookup (Cofree f) where
   lookup key (a :< as) = case viewl key of 
+    EmptyL -> Just a
+    k Seq.:< ks -> lookup k as >>= lookup ks
+
+instance Lookup Tree where
+  lookup key (Node a as) = case viewl key of 
     EmptyL -> Just a
     k Seq.:< ks -> lookup k as >>= lookup ks
 
@@ -202,6 +226,11 @@ instance Adjustable f => Adjustable (Cofree f) where
     k Seq.:< ks -> a   :< adjust (adjust f ks) k as
     _           -> f a :< as
 
+instance Adjustable Tree where
+  adjust f key (Node a as) = case viewl key of
+    k Seq.:< ks -> a   `Node` adjust (adjust f ks) k as
+    _           -> f a `Node` as
+
 -- * FoldableWithKey
 
 class Foldable t => FoldableWithKey t where
@@ -223,6 +252,9 @@ instance FoldableWithKey f => FoldableWithKey (Free f) where
 
 instance FoldableWithKey f => FoldableWithKey (Cofree f) where
   foldMapWithKey f (a :< as) = f Seq.empty a `mappend` foldMapWithKey (foldMapWithKey . fmap f . flip (|>)) as
+
+instance FoldableWithKey Tree where
+  foldMapWithKey f (Node a as) = f Seq.empty a `mappend` foldMapWithKey (foldMapWithKey . fmap f . flip (|>)) as
 
 foldrWithKey' :: FoldableWithKey t => (Key t -> a -> b -> b) -> b -> t a -> b
 foldrWithKey' f z0 xs = foldlWithKey f' id xs z0
@@ -288,6 +320,10 @@ class (Foldable1 t, FoldableWithKey t) => FoldableWithKey1 t where
 instance FoldableWithKey1 f => FoldableWithKey1 (Cofree f) where
   foldMapWithKey1 f (a :< as) = f Seq.empty a <> foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) as
 
+instance FoldableWithKey1 Tree where
+  foldMapWithKey1 f (Node a []) = f Seq.empty a
+  foldMapWithKey1 f (Node a (x:xs)) = f Seq.empty a <> foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) (x:|xs)
+
 instance FoldableWithKey1 f => FoldableWithKey1 (Free f) where
   foldMapWithKey1 f (Pure a) = f Seq.empty a
   foldMapWithKey1 f (Free as) = foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) as
@@ -323,6 +359,9 @@ class (Keyed t, FoldableWithKey t, Traversable t) => TraversableWithKey t where
 
 instance TraversableWithKey f => TraversableWithKey (Cofree f) where
   traverseWithKey f (a :< as) = (:<) <$> f Seq.empty a <*> traverseWithKey (traverseWithKey . fmap f . flip (|>)) as
+
+instance TraversableWithKey Tree where
+  traverseWithKey f (Node a as) = Node <$> f Seq.empty a <*> traverseWithKey (traverseWithKey . fmap f . flip (|>)) as
 
 instance TraversableWithKey f => TraversableWithKey (Free f) where
   traverseWithKey f (Pure a) = Pure <$> f Seq.empty a
@@ -397,6 +436,10 @@ class (Traversable1 t, FoldableWithKey1 t, TraversableWithKey t) => TraversableW
 -- instance TraversableWithKey f => TraversableWithKey1 (Cofree f) where
 instance TraversableWithKey1 f => TraversableWithKey1 (Cofree f) where
   traverseWithKey1 f (a :< as) = (:<) <$> f Seq.empty a <.> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) as
+
+instance TraversableWithKey1 Tree where
+  traverseWithKey1 f (Node a []) = (`Node`[]) <$> f Seq.empty a
+  traverseWithKey1 f (Node a (x:xs)) = (\b (y:|ys) -> Node b (y:ys)) <$> f Seq.empty a <.> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) (x:|xs)
   
 instance TraversableWithKey1 f => TraversableWithKey1 (Free f) where
   traverseWithKey1 f (Pure a) = Pure <$> f Seq.empty a
@@ -619,6 +662,43 @@ instance Adjustable [] where
   adjust f 0 (x:xs) = f x : xs
   adjust _ _ [] = []
   adjust f n (x:xs) = n' `seq` x : adjust f n' xs where n' = n - 1
+
+
+
+instance Zip NonEmpty where
+  zipWith = NonEmpty.zipWith
+
+instance ZipWithKey NonEmpty where
+  zipWithKey f (a:|as) (b:|bs) = f 0 a b :| zipWithKey (f . (+1)) as bs
+
+instance Keyed NonEmpty where
+  mapWithKey f (a:|as) = f 0 a :| mapWithKey (f . (+1)) as
+
+instance FoldableWithKey NonEmpty where
+  foldrWithKey f z (x:|xs) = f 0 x (foldrWithKey (f . (+1)) z xs)
+
+instance TraversableWithKey NonEmpty where
+  traverseWithKey f (x :| xs) = (:|) <$> f 0 x <*> traverseWithKey (f . (+1)) xs
+
+instance Indexable NonEmpty where
+  index (x:|_) 0 = x
+  index (_:|xs) i = xs !! (i - 1)
+
+instance Lookup NonEmpty where
+  lookup 0 (x:|_) = Just x
+  lookup n (_:|xs) = lookup (n - 1) xs
+
+instance Adjustable NonEmpty where
+  adjust f 0 (x:|xs) = f x :| xs
+  adjust f n (x:|xs) = x :| adjust f (n - 1) xs
+
+instance FoldableWithKey1 NonEmpty where
+  foldMapWithKey1 f (x:|[]) = f 0 x 
+  foldMapWithKey1 f (x:|(y:ys)) = f 0 x <> foldMapWithKey1 (f . (+1)) (y:|ys) -- TODO optimize
+
+instance TraversableWithKey1 NonEmpty where
+  traverseWithKey1 f (x:|[]) = (:|[]) <$> f 0 x
+  traverseWithKey1 f (x:|(y:ys)) = (\w (z:|zs) -> w :| (z:zs)) <$> f 0 x <.> traverseWithKey1 (f . (+1)) (y :| ys)
 
 type instance Key Seq = Int
 
