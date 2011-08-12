@@ -58,11 +58,6 @@ module Data.Key (
   -- * TraverableWithKey1
   , TraversableWithKey1(..)
   , foldMapWithKey1Default -- :: (TraversableWithKey1 t, Semigroup m) => (Key t -> a -> m) -> t a -> m
-  , module Data.Foldable
-  , module Data.Traversable
-  , module Data.Semigroup
-  , module Data.Semigroup.Foldable
-  , module Data.Semigroup.Traversable
   ) where
 
 import Control.Applicative
