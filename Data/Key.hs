@@ -83,7 +83,7 @@ import Data.Tree
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (listToMaybe)
-import Data.Monoid as Monoid hiding (Product)
+import qualified Data.Monoid as Monoid
 import Data.Semigroup hiding (Product)
 import Data.Semigroup.Foldable
 import Data.Semigroup.Traversable
