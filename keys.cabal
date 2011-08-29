@@ -1,6 +1,6 @@
 name:          keys
 category:      Data Structures, Containers
-version:       2.1.1
+version:       2.1.1.1
 license:       BSD3
 cabal-version: >= 1.6
 license-file:  LICENSE
@@ -15,7 +15,7 @@ build-type:    Simple
 
 source-repository head
   type: git
-  location: git://github.com/ekmett/adjunctions.git
+  location: git://github.com/ekmett/keys.git
 
 library
   build-depends: 
