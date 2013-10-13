@@ -1,3 +1,8 @@
+3.0.4
+-----
+* Updated array dependency
+* Added proper upper bounds to other dependencies
+
 3.0.3
 -----
 * This package is now `Trustworthy`
