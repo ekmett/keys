@@ -1,3 +1,7 @@
+3.10
+----
+* Updated to use `free`, `semigroupoids`, `comonad` version 4.0
+
 3.0.4
 -----
 * Updated array dependency
