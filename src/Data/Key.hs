@@ -15,7 +15,7 @@ module Data.Key (
   -- * Zippable functors
   , Zip(..)
 
-  -- * Zipping keyed functors 
+  -- * Zipping keyed functors
   , ZipWithKey(..)
 
   -- * Indexable functors
@@ -99,7 +99,7 @@ import Prelude hiding (lookup, zip, zipWith)
 
 -- TODO: half of the functions manipulating Cofree and Free buil the keys in the wrong order
 
-type family Key (f :: * -> *) 
+type family Key (f :: * -> *)
 type instance Key (Cofree f) = Seq (Key f)
 type instance Key (Free f) = Seq (Key f)
 type instance Key Tree = Seq Int
@@ -148,7 +148,7 @@ instance ZipWithKey f => ZipWithKey (Cofree f) where
 
 instance ZipWithKey Tree where
   zipWithKey f (Node a as) (Node b bs) = f Seq.empty a b `Node` zipWithKey (zipWithKey . fmap f . flip (|>)) as bs
-  
+
 infixl 4 <#$>
 
 (<#$>) :: Keyed f => (Key f -> a -> b) -> f a -> f b
@@ -165,12 +165,12 @@ class Lookup f => Indexable f where
   index :: f a -> Key f -> a
 
 instance Indexable f => Indexable (Cofree f) where
-  index (a :< as) key = case viewl key of 
+  index (a :< as) key = case viewl key of
       EmptyL -> a
       k Seq.:< ks -> index (index as k) ks
 
 instance Indexable Tree where
-  index (Node a as) key = case viewl key of 
+  index (Node a as) key = case viewl key of
       EmptyL -> a
       k Seq.:< ks -> index (index as k) ks
 
@@ -183,24 +183,24 @@ class Lookup f where
   lookup :: Key f -> f a -> Maybe a
 
 instance Lookup f => Lookup (Cofree f) where
-  lookup key (a :< as) = case viewl key of 
+  lookup key (a :< as) = case viewl key of
     EmptyL -> Just a
     k Seq.:< ks -> lookup k as >>= lookup ks
 
 instance Lookup Tree where
-  lookup key (Node a as) = case viewl key of 
+  lookup key (Node a as) = case viewl key of
     EmptyL -> Just a
     k Seq.:< ks -> lookup k as >>= lookup ks
 
 instance Lookup f => Lookup (Free f) where
-  lookup key (Pure a) 
-    | Seq.null key = Just a 
+  lookup key (Pure a)
+    | Seq.null key = Just a
     | otherwise = Nothing
-  lookup key (Free as) = case viewl key of 
+  lookup key (Free as) = case viewl key of
     k Seq.:< ks -> lookup k as >>= lookup ks
     _ -> Nothing
-  
-    
+
+
 lookupDefault :: Indexable f => Key f -> f a -> Maybe a
 lookupDefault k t = Just (index t k)
 
@@ -213,8 +213,8 @@ class Functor f => Adjustable f where
   replace k v = adjust (const v) k
 
 instance Adjustable f => Adjustable (Free f) where
-  adjust f key as@(Pure a) 
-    | Seq.null key = Pure $ f a 
+  adjust f key as@(Pure a)
+    | Seq.null key = Pure $ f a
     | otherwise = as
   adjust f key aas@(Free as) = case viewl key of
     k Seq.:< ks -> Free $ adjust (adjust f ks) k as
@@ -326,7 +326,7 @@ instance FoldableWithKey1 Tree where
 instance FoldableWithKey1 f => FoldableWithKey1 (Free f) where
   foldMapWithKey1 f (Pure a) = f Seq.empty a
   foldMapWithKey1 f (Free as) = foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) as
-  
+
 newtype Act f a = Act { getAct :: f a }
 
 instance Apply f => Semigroup (Act f a) where
@@ -354,7 +354,7 @@ class (Keyed t, FoldableWithKey t, Traversable t) => TraversableWithKey t where
   traverseWithKey :: Applicative f => (Key t -> a -> f b) -> t a -> f (t b)
 
   mapWithKeyM :: Monad m => (Key t -> a -> m b) -> t a -> m (t b)
-  mapWithKeyM f = unwrapMonad . traverseWithKey (fmap WrapMonad . f) 
+  mapWithKeyM f = unwrapMonad . traverseWithKey (fmap WrapMonad . f)
 
 instance TraversableWithKey f => TraversableWithKey (Cofree f) where
   traverseWithKey f (a :< as) = (:<) <$> f Seq.empty a <*> traverseWithKey (traverseWithKey . fmap f . flip (|>)) as
@@ -439,7 +439,7 @@ instance TraversableWithKey1 f => TraversableWithKey1 (Cofree f) where
 instance TraversableWithKey1 Tree where
   traverseWithKey1 f (Node a []) = (`Node`[]) <$> f Seq.empty a
   traverseWithKey1 f (Node a (x:xs)) = (\b (y:|ys) -> Node b (y:ys)) <$> f Seq.empty a <.> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) (x:|xs)
-  
+
 instance TraversableWithKey1 f => TraversableWithKey1 (Free f) where
   traverseWithKey1 f (Pure a) = Pure <$> f Seq.empty a
   traverseWithKey1 f (Free as) = Free <$> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) as
@@ -498,7 +498,7 @@ instance ZipWithKey m => ZipWithKey (IdentityT m) where
   zipWithKey f (IdentityT m) (IdentityT n) = IdentityT (zipWithKey f m n)
 
 instance Keyed m => Keyed (IdentityT m) where
-  mapWithKey f = IdentityT . mapWithKey f . runIdentityT 
+  mapWithKey f = IdentityT . mapWithKey f . runIdentityT
 
 instance FoldableWithKey m => FoldableWithKey (IdentityT m) where
   foldrWithKey f z (IdentityT m) = foldrWithKey f z m
@@ -525,18 +525,18 @@ instance ZipWithKey ((->)a) where
 
 instance Indexable ((->)a) where
   index = id
-  
+
 instance Lookup ((->)a) where
   lookup i f = Just (f i)
 
 type instance Key (ReaderT e m) = (e, Key m)
 
 instance Zip m => Zip (ReaderT e m) where
-  zipWith f (ReaderT m) (ReaderT n) = ReaderT $ \a -> 
+  zipWith f (ReaderT m) (ReaderT n) = ReaderT $ \a ->
     zipWith f (m a) (n a)
 
 instance ZipWithKey m => ZipWithKey (ReaderT e m) where
-  zipWithKey f (ReaderT m) (ReaderT n) = ReaderT $ \a -> 
+  zipWithKey f (ReaderT m) (ReaderT n) = ReaderT $ \a ->
     zipWithKey (f . (,) a) (m a) (n a)
 
 instance Keyed m => Keyed (ReaderT e m) where
@@ -551,22 +551,22 @@ instance Lookup m => Lookup (ReaderT e m) where
 type instance Key (TracedT s w) = (s, Key w)
 
 instance Zip w => Zip (TracedT s w) where
-  zipWith f (TracedT u) (TracedT v) = TracedT $ 
+  zipWith f (TracedT u) (TracedT v) = TracedT $
     zipWith (\a b s -> f (a s) (b s)) u v
 
 instance ZipWithKey w => ZipWithKey (TracedT s w) where
-  zipWithKey f (TracedT u) (TracedT v) = TracedT $ 
+  zipWithKey f (TracedT u) (TracedT v) = TracedT $
     zipWithKey (\k a b s -> f (s, k) (a s) (b s)) u v
 
 instance Keyed w => Keyed (TracedT s w) where
-  mapWithKey f = TracedT . mapWithKey (\k' g k -> f (k, k') (g k)) . runTracedT 
+  mapWithKey f = TracedT . mapWithKey (\k' g k -> f (k, k') (g k)) . runTracedT
 
 instance Indexable w => Indexable (TracedT s w) where
-  index (TracedT w) (e,k) = index w k e 
+  index (TracedT w) (e,k) = index w k e
 
 instance Lookup w => Lookup (TracedT s w) where
   lookup (e,k) (TracedT w) = ($ e) <$> lookup k w
-  
+
 type instance Key IntMap = Int
 
 instance Zip IntMap where
@@ -599,7 +599,7 @@ instance (Zip f, Zip g) => Zip (Compose f g) where
   zipWith f (Compose a) (Compose b) = Compose $ zipWith (zipWith f) a b
 
 instance (ZipWithKey f, ZipWithKey g) => ZipWithKey (Compose f g) where
-  zipWithKey f (Compose a) (Compose b) = Compose $ 
+  zipWithKey f (Compose a) (Compose b) = Compose $
     zipWithKey (zipWithKey . fmap f . (,)) a b
 
 instance (Keyed f, Keyed g) => Keyed (Compose f g) where
@@ -634,7 +634,7 @@ instance ZipWithKey [] where
     go _ [] _ = []
     go _ _ [] = []
     go n (x:xs) (y:ys) = n' `seq` f n x y : go n' xs ys
-      where n' = n + 1 
+      where n' = n + 1
 
 instance Keyed [] where
   mapWithKey f xs0 = go xs0 0 where
@@ -692,7 +692,7 @@ instance Adjustable NonEmpty where
   adjust f n (x:|xs) = x :| adjust f (n - 1) xs
 
 instance FoldableWithKey1 NonEmpty where
-  foldMapWithKey1 f (x:|[]) = f 0 x 
+  foldMapWithKey1 f (x:|[]) = f 0 x
   foldMapWithKey1 f (x:|(y:ys)) = f 0 x <> foldMapWithKey1 (f . (+1)) (y:|ys) -- TODO optimize
 
 instance TraversableWithKey1 NonEmpty where
@@ -755,10 +755,10 @@ instance Ord k => Adjustable (Map k) where
   adjust = Map.adjust
 
 type instance Key (Array i) = i
-  
+
 instance Ix i => Keyed (Array i) where
   mapWithKey f arr = Array.listArray (Array.bounds arr) $ map (uncurry f) $ Array.assocs arr
-  
+
 -- a pleasant fiction
 instance Ix i => Indexable (Array i) where
   index = (Array.!)
@@ -777,11 +777,11 @@ instance Ix i => TraversableWithKey (Array i) where
 instance Ix i => Adjustable (Array i) where
   adjust f i arr  = arr Array.// [(i, f (arr Array.! i))]
   replace i b arr = arr Array.// [(i, b)]
-  
+
 type instance Key (Coproduct f g) = (Key f, Key g)
 
 instance (Indexable f, Indexable g) => Indexable (Coproduct f g) where
-  index (Coproduct (Left a)) (x,_) = index a x 
+  index (Coproduct (Left a)) (x,_) = index a x
   index (Coproduct (Right b)) (_,y) = index b y
 
 instance (Lookup f, Lookup g) => Lookup (Coproduct f g) where
@@ -798,7 +798,7 @@ instance (Keyed f, Keyed g) => Keyed (Product f g) where
   mapWithKey f (Pair a b) = Pair (mapWithKey (f . Left) a) (mapWithKey (f . Right) b)
 
 instance (Indexable f, Indexable g) => Indexable (Product f g) where
-  index (Pair a _) (Left i)  = index a i 
+  index (Pair a _) (Left i)  = index a i
   index (Pair _ b) (Right j) = index b j
 
 instance (Lookup f, Lookup g) => Lookup (Product f g) where
