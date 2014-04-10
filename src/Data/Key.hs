@@ -59,7 +59,7 @@ module Data.Key (
   , mapWithKeyDefault -- :: TraversableWithKey t => (Key t -> a -> b) -> t a -> t b
   , foldMapWithKeyDefault -- :: (TraversableWithKey t, Monoid m) => (Key t -> a -> m) -> t a -> m
 
-  -- * TraverableWithKey1
+  -- * TraversableWithKey1
   , TraversableWithKey1(..)
   , foldMapWithKey1Default -- :: (TraversableWithKey1 t, Semigroup m) => (Key t -> a -> m) -> t a -> m
   ) where
@@ -428,7 +428,7 @@ foldMapWithKeyDefault :: (TraversableWithKey t, Monoid m) => (Key t -> a -> m) -
 foldMapWithKeyDefault f = getConst . traverseWithKey (fmap Const . f)
 {-# INLINE foldMapWithKeyDefault #-}
 
--- * TraverableWithKey1
+-- * TraversableWithKey1
 class (Traversable1 t, FoldableWithKey1 t, TraversableWithKey t) => TraversableWithKey1 t where
   traverseWithKey1 :: Apply f => (Key t -> a -> f b) -> t a -> f (t b)
 
