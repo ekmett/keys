@@ -28,7 +28,7 @@ library
     free                 >= 4       && < 5,
     semigroupoids        >= 4       && < 5,
     semigroups           >= 0.8.3.1 && < 1,
-    transformers         >= 0.2     && < 0.4
+    transformers         >= 0.2     && < 0.5
 
   exposed-modules:
     Data.Key
