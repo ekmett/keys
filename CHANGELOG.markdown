@@ -1,3 +1,7 @@
+3.10.1
+------
+* Support for `transformers` 0.4.
+
 3.10
 ----
 * Updated to use `free`, `semigroupoids`, `comonad` version 4.0
