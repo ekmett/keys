@@ -78,6 +78,9 @@ import Data.Functor.Compose
 import Data.Functor.Product
 import Data.Functor.Coproduct
 import Data.Foldable
+import Data.Hashable
+import Data.HashMap.Lazy (HashMap)
+import qualified Data.HashMap.Lazy as HashMap
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Ix hiding (index)
@@ -86,7 +89,7 @@ import qualified Data.Map as Map
 import Data.Tree
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
-import Data.Maybe (listToMaybe)
+import Data.Maybe (fromJust, listToMaybe)
 import qualified Data.Monoid as Monoid
 import Data.Semigroup hiding (Product)
 import Data.Semigroup.Foldable
@@ -830,3 +833,70 @@ instance (Adjustable f, Adjustable g) => Adjustable (Product f g) where
   replace (Left i) v (Pair a b) = Pair (replace i v a) b
   replace (Right j) v (Pair a b) = Pair a (replace j v b)
 
+type instance Key ((,) k) = k
+
+instance Keyed ((,) k) where
+  mapWithKey f (k, a) = (k, f k a)
+
+instance FoldableWithKey ((,) k) where
+  foldMapWithKey = uncurry
+
+instance FoldableWithKey1 ((,) k) where
+  foldMapWithKey1 = uncurry
+
+instance TraversableWithKey ((,) k) where
+  traverseWithKey f (k, a) = (,) k <$> f k a
+
+instance TraversableWithKey1 ((,) k) where
+  traverseWithKey1 f (k, a) = (,) k <$> f k a
+
+type instance Key (HashMap k) = k
+
+instance Keyed (HashMap k) where
+  mapWithKey = HashMap.mapWithKey
+
+instance (Eq k, Hashable k) => Indexable (HashMap k) where
+  index = (HashMap.!)
+
+instance (Eq k, Hashable k) => Lookup (HashMap k) where
+  lookup = HashMap.lookup
+
+instance (Eq k, Hashable k) => Zip (HashMap k) where
+  zipWith = HashMap.intersectionWith
+
+instance (Eq k, Hashable k) => ZipWithKey (HashMap k) where
+  zipWithKey f a b = HashMap.foldlWithKey' go HashMap.empty a
+    where
+      go m k v = case lookup k b of
+                   Just w -> HashMap.insert k (f k v w) m
+                   _      -> m
+
+instance FoldableWithKey (HashMap k) where
+  foldrWithKey = HashMap.foldrWithKey
+
+instance TraversableWithKey (HashMap k) where
+  traverseWithKey = HashMap.traverseWithKey
+
+type instance Key Maybe = ()
+
+instance Keyed Maybe where
+  mapWithKey f = fmap (f ())
+
+instance Indexable Maybe where
+  index = const . fromJust
+
+instance Lookup Maybe where
+  lookup _ mb = mb
+
+instance Zip Maybe where
+  zipWith f (Just a) (Just b) = Just (f a b)
+  zipWith _ _        _        = error "zipWith: Nothing"
+
+instance ZipWithKey Maybe where
+  zipWithKey f = zipWith (f ())
+
+instance FoldableWithKey Maybe where
+  foldMapWithKey f = foldMap (f ())
+
+instance TraversableWithKey Maybe where
+  traverseWithKey f = traverse (f ())
