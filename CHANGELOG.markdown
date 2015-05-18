@@ -1,3 +1,7 @@
+3.10.2
+------
+* Support for `semigroupoids` 5.
+
 3.10.1
 ------
 * Support for `transformers` 0.4.
