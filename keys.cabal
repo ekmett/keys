@@ -30,7 +30,7 @@ library
     semigroupoids        >= 4       && < 6,
     semigroups           >= 0.8.3.1 && < 1,
     transformers         >= 0.2     && < 0.5,
-    unordered-containers >= 0.2     && < 0.3
+    unordered-containers >= 0.2.4   && < 0.3
 
   exposed-modules:
     Data.Key
