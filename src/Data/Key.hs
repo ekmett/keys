@@ -100,7 +100,7 @@ import Data.Traversable
 import qualified Data.List as List
 import Prelude hiding (lookup, zip, zipWith)
 
--- TODO: half of the functions manipulating Cofree and Free buil the keys in the wrong order
+-- TODO: half of the functions manipulating Cofree and Free build the keys in the wrong order
 
 type family Key (f :: * -> *)
 type instance Key (Cofree f) = Seq (Key f)
