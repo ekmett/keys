@@ -9,7 +9,7 @@ maintainer:    Edward A. Kmett <ekmett@gmail.com>
 stability:     provisional
 homepage:      http://github.com/ekmett/keys/
 bug-reports:   http://github.com/ekmett/keys/issues
-copyright:     Copyright (C) 2011 Edward A. Kmett
+copyright:     Copyright (C) 2011-2016 Edward A. Kmett
 synopsis:      Keyed functors and containers
 description:   Keyed functors and containers
 build-type:    Simple
