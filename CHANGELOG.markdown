@@ -1,10 +1,16 @@
+3.10.3
+--------
+* Support for `comonad` 5
+* Support for GHC 8
+* Support for `transformers` 0.5
+
 3.10.2
 ------
-* Support for `semigroupoids` 5.
+* Support for `semigroupoids` 5
 
 3.10.1
 ------
-* Support for `transformers` 0.4.
+* Support for `transformers` 0.4
 
 3.10
 ----
