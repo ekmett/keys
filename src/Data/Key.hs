@@ -784,7 +784,7 @@ instance Ix i => Adjustable (Array i) where
 type instance Key (Sum f g) = (Key f, Key g)
 
 instance (Indexable f, Indexable g) => Indexable (Sum f g) where
-  index (InL a)) (x,_) = index a x
+  index (InL a) (x,_) = index a x
   index (InR b) (_,y) = index b y
 
 instance (Lookup f, Lookup g) => Lookup (Sum f g) where
