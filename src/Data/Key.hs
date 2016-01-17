@@ -792,8 +792,8 @@ instance (Lookup f, Lookup g) => Lookup (Functor.Sum f g) where
   lookup (_, y) (Functor.InR b) = lookup y b
 
 instance (Adjustable f, Adjustable g) => Adjustable (Functor.Sum f g) where
-  adjust f (x,_) (Functor.InL a) = InL (adjust f x a)
-  adjust f (_,y) (Functor.InR b) = InR (adjust f y b)
+  adjust f (x,_) (Functor.InL a) = Functor.InL (adjust f x a)
+  adjust f (_,y) (Functor.InR b) = Functor.InR (adjust f y b)
 
 type instance Key (Product f g) = Either (Key f) (Key g)
 
