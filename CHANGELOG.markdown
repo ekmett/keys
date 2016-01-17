@@ -1,4 +1,4 @@
-3.10.3
+3.11
 --------
 * Support for `comonad` 5
 * Support for GHC 8
