@@ -76,7 +76,7 @@ import Data.Functor.Identity
 import Data.Functor.Bind
 import Data.Functor.Compose
 import Data.Functor.Product
-import Data.Functor.Sum
+import qualified Data.Functor.Sum as Functor
 import Data.Foldable
 import Data.Hashable
 import Data.HashMap.Lazy (HashMap)
@@ -781,19 +781,19 @@ instance Ix i => Adjustable (Array i) where
   adjust f i arr  = arr Array.// [(i, f (arr Array.! i))]
   replace i b arr = arr Array.// [(i, b)]
 
-type instance Key (Sum f g) = (Key f, Key g)
+type instance Key (Functor.Sum f g) = (Key f, Key g)
 
-instance (Indexable f, Indexable g) => Indexable (Sum f g) where
-  index (InL a) (x,_) = index a x
-  index (InR b) (_,y) = index b y
+instance (Indexable f, Indexable g) => Indexable (Functor.Sum f g) where
+  index (Functor.InL a) (x,_) = index a x
+  index (Functor.InR b) (_,y) = index b y
 
-instance (Lookup f, Lookup g) => Lookup (Sum f g) where
-  lookup (x, _) (InL a) = lookup x a
-  lookup (_, y) (InR b) = lookup y b
+instance (Lookup f, Lookup g) => Lookup (Functor.Sum f g) where
+  lookup (x, _) (Functor.InL a) = lookup x a
+  lookup (_, y) (Functor.InR b) = lookup y b
 
-instance (Adjustable f, Adjustable g) => Adjustable (Sum f g) where
-  adjust f (x,_) (InL a) = InL (adjust f x a)
-  adjust f (_,y) (InR b) = InR (adjust f y b)
+instance (Adjustable f, Adjustable g) => Adjustable (Functor.Sum f g) where
+  adjust f (x,_) (Functor.InL a) = InL (adjust f x a)
+  adjust f (_,y) (Functor.InR b) = InR (adjust f y b)
 
 type instance Key (Product f g) = Either (Key f) (Key g)
 
