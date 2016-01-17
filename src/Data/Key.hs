@@ -76,7 +76,7 @@ import Data.Functor.Identity
 import Data.Functor.Bind
 import Data.Functor.Compose
 import Data.Functor.Product
-import Data.Functor.Coproduct
+import Data.Functor.Sum
 import Data.Foldable
 import Data.Hashable
 import Data.HashMap.Lazy (HashMap)
@@ -781,19 +781,19 @@ instance Ix i => Adjustable (Array i) where
   adjust f i arr  = arr Array.// [(i, f (arr Array.! i))]
   replace i b arr = arr Array.// [(i, b)]
 
-type instance Key (Coproduct f g) = (Key f, Key g)
+type instance Key (Sum f g) = (Key f, Key g)
 
-instance (Indexable f, Indexable g) => Indexable (Coproduct f g) where
-  index (Coproduct (Left a)) (x,_) = index a x
-  index (Coproduct (Right b)) (_,y) = index b y
+instance (Indexable f, Indexable g) => Indexable (Sum f g) where
+  index (InL a)) (x,_) = index a x
+  index (InR b) (_,y) = index b y
 
-instance (Lookup f, Lookup g) => Lookup (Coproduct f g) where
-  lookup (x, _) (Coproduct (Left a)) = lookup x a
-  lookup (_, y) (Coproduct (Right b)) = lookup y b
+instance (Lookup f, Lookup g) => Lookup (Sum f g) where
+  lookup (x, _) (InL a) = lookup x a
+  lookup (_, y) (InR b) = lookup y b
 
-instance (Adjustable f, Adjustable g) => Adjustable (Coproduct f g) where
-  adjust f (x,_) (Coproduct (Left a)) = Coproduct (Left (adjust f x a))
-  adjust f (_,y) (Coproduct (Right b)) = Coproduct (Right (adjust f y b))
+instance (Adjustable f, Adjustable g) => Adjustable (Sum f g) where
+  adjust f (x,_) (InL a) = InL (adjust f x a)
+  adjust f (_,y) (InR b) = InR (adjust f y b)
 
 type instance Key (Product f g) = Either (Key f) (Key g)
 
