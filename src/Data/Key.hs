@@ -462,7 +462,7 @@ instance FoldableWithKey U1 where
   foldMapWithKey _ _ = mempty
 
 instance FoldableWithKey V1 where
-  foldMapWithKey f v = v `seq` undefined
+  foldMapWithKey _ v = v `seq` undefined
 
 instance FoldableWithKey (K1 i c) where
   foldMapWithKey _ _ = mempty
@@ -553,7 +553,7 @@ instance (FoldableWithKey1 f, FoldableWithKey1 g) => FoldableWithKey1 (f :+: g) 
   foldMapWithKey1 f (R1 a) = foldMapWithKey1 (f . Right) a
 
 instance FoldableWithKey1 V1 where
-  foldMapWithKey1 f v = v `seq` undefined
+  foldMapWithKey1 _ v = v `seq` undefined
 
 instance FoldableWithKey1 Par1 where
   foldMapWithKey1 f (Par1 a) = f () a
@@ -617,7 +617,7 @@ instance TraversableWithKey U1 where
   traverseWithKey _ U1 = pure U1
 
 instance TraversableWithKey V1 where
-  traverseWithKey f v = v `seq` undefined
+  traverseWithKey _ v = v `seq` undefined
 
 instance TraversableWithKey (K1 i c) where
   traverseWithKey _ (K1 p) = pure (K1 p)
@@ -716,7 +716,7 @@ instance TraversableWithKey1 f => TraversableWithKey1 (M1 i c f) where
   traverseWithKey1 f (M1 a) = M1 <$> traverseWithKey1 f a
 
 instance TraversableWithKey1 V1 where
-  traverseWithKey1 f v = v `seq` undefined
+  traverseWithKey1 _ v = v `seq` undefined
 
 instance (TraversableWithKey1 f, TraversableWithKey1 g) => TraversableWithKey1 (f :*: g) where
   traverseWithKey1 f (a :*: b) = (:*:) <$> traverseWithKey1 (f . Left) a <.> traverseWithKey1 (f . Right) b
