@@ -1,4 +1,7 @@
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE CPP #-}
 module Data.Key (
   -- * Keys
@@ -95,6 +98,8 @@ import Data.Sequence (Seq, ViewL(EmptyL), viewl, (|>))
 import qualified Data.Sequence as Seq
 import Data.Traversable
 import qualified Data.List as List
+import Data.Void
+import GHC.Generics
 import Prelude hiding (lookup, zip, zipWith)
 
 -- TODO: half of the functions manipulating Cofree and Free build the keys in the wrong order
@@ -104,6 +109,10 @@ type instance Key (Cofree f) = Seq (Key f)
 type instance Key (Free f) = Seq (Key f)
 type instance Key Tree = Seq Int
 type instance Key NonEmpty = Int
+type instance Key U1 = Void
+type instance Key Par1 = ()
+type instance Key (g :.: f) = (Key g , Key f)
+type instance Key (f :*: g) = Either (Key f) (Key g)
 
 -- * Keyed
 class Functor f => Keyed f where
@@ -118,6 +127,35 @@ instance Keyed f => Keyed (Cofree f) where
 
 instance Keyed Tree where
   mapWithKey f (Node a as) = Node (f Seq.empty a) (mapWithKey (mapWithKey . fmap f . flip (|>)) as)
+
+instance Keyed U1 where mapWithKey _ U1 = U1
+
+instance Keyed Par1 where mapWithKey q = fmap (q ())
+
+instance (Keyed g, Keyed f) => Keyed (f :*: g) where
+  mapWithKey q (fa :*: ga) = mapWithKey (q . Left) fa :*: mapWithKey (q . Right) ga
+
+instance (Keyed g, Keyed f) => Keyed (g :.: f) where
+  mapWithKey q = inComp (mapWithKey (mapWithKey . fmap q . (,)))
+
+#if 0
+mapWithKey :: (Key (g :.: f) -> a -> b) -> (g :.: f) a -> (g :.: f) b
+           :: ((Key g, Key f) -> a -> b) -> (g :.: f) a -> (g :.: f) b
+
+mapWithKey q
+  = \ (Comp1 gfa) -> Comp1 (mapWithKey (\ gk -> mapWithKey (\ fk a -> q (gk, fk) a)) gfa)
+  = inComp $ mapWithKey (\ gk -> mapWithKey (\ fk a -> q (gk, fk) a))
+  = inComp $ mapWithKey (\ gk -> mapWithKey (\ fk -> q (gk, fk)))
+  = inComp $ mapWithKey (\ gk -> mapWithKey (q . (gk,)))
+  = inComp $ mapWithKey (\ gk -> mapWithKey . (q .) $ (gk,))
+  = inComp $ mapWithKey (\ gk -> mapWithKey . (q .) $ (,) gk)
+  = inComp (mapWithKey (mapWithKey . fmap q . (,)))
+
+q   :: ((Key g, Key f) -> a -> b)
+gfa :: g (f a)
+gk  :: Key g
+fk  :: Key f
+#endif
 
 class Functor f => Zip f where
   zipWith :: (a -> b -> c) -> f a -> f b -> f c
@@ -136,6 +174,30 @@ instance Zip f => Zip (Cofree f) where
 instance Zip Tree where
   zipWith f (Node a as) (Node b bs) = Node (f a b) (zipWith (zipWith f) as bs)
 
+instance Zip U1 where zipWith = liftA2
+
+instance Zip Par1 where zipWith = liftA2
+
+instance (Zip f, Zip g) => Zip (f :*: g) where
+  zipWith h (fa :*: ga) (fa' :*: ga') =
+    zipWith h fa fa' :*: zipWith h ga ga'
+
+instance (Zip f, Zip g) => Zip (g :.: f) where
+  zipWith = inComp2 . zipWith . zipWith
+
+-- | Add post- and pre-processing
+(<--) :: (b -> b') -> (a' -> a) -> ((a -> b) -> (a' -> b'))
+(h <-- f) g = h . g . f
+
+-- | Apply a unary function within the 'Comp1' constructor.
+inComp :: (g (f a) -> g' (f' a')) -> ((g :.: f) a -> (g' :.: f') a')
+inComp = Comp1 <-- unComp1
+
+-- | Apply a binary function within the 'Comp1' constructor.
+inComp2 :: (  g (f a)   -> g' (f' a')     -> g'' (f'' a''))
+        -> ((g :.: f) a -> (g' :.: f') a' -> (g'' :.: f'') a'')
+inComp2 = inComp <-- unComp1
+
 class (Keyed f, Zip f) => ZipWithKey f where
   zipWithKey :: (Key f -> a -> b -> c) -> f a -> f b -> f c
   zipWithKey f = zap . mapWithKey f
@@ -148,6 +210,14 @@ instance ZipWithKey f => ZipWithKey (Cofree f) where
 
 instance ZipWithKey Tree where
   zipWithKey f (Node a as) (Node b bs) = f Seq.empty a b `Node` zipWithKey (zipWithKey . fmap f . flip (|>)) as bs
+
+instance ZipWithKey U1
+
+instance ZipWithKey Par1
+
+instance (Keyed g, Zip g, Keyed f, Zip f) => ZipWithKey (f :*: g)
+
+instance (Keyed g, Zip g, Keyed f, Zip f) => ZipWithKey (g :.: f)
 
 infixl 4 <#$>
 
@@ -173,6 +243,19 @@ instance Indexable Tree where
   index (Node a as) key = case viewl key of
       EmptyL -> a
       k Seq.:< ks -> index (index as k) ks
+
+instance Indexable U1 where index U1 = \ case
+
+instance Indexable Par1 where index (Par1 a) () = a
+
+instance (Indexable g, Indexable f) =>
+         Indexable (f :*: g) where
+  index (fa :*: _) (Left  fk) = fa ! fk
+  index (_ :*: ga) (Right gk) = ga ! gk
+
+instance (Indexable g, Indexable f) =>
+         Indexable (g :.: f) where
+  index (Comp1 gfa) (gk,fk) = gfa ! gk ! fk
 
 (!) :: Indexable f => f a -> Key f -> a
 (!) = index
@@ -200,6 +283,15 @@ instance Lookup f => Lookup (Free f) where
     k Seq.:< ks -> lookup k as >>= lookup ks
     _ -> Nothing
 
+instance Lookup U1 where lookup = lookupDefault
+
+instance Lookup Par1 where lookup = lookupDefault
+
+instance (Indexable g, Indexable f) => Lookup (f :*: g) where
+  lookup = lookupDefault
+
+instance (Indexable g, Indexable f) => Lookup (g :.: f) where
+  lookup = lookupDefault
 
 lookupDefault :: Indexable f => Key f -> f a -> Maybe a
 lookupDefault k t = Just (index t k)
@@ -229,6 +321,17 @@ instance Adjustable Tree where
   adjust f key (Node a as) = case viewl key of
     k Seq.:< ks -> a   `Node` adjust (adjust f ks) k as
     _           -> f a `Node` as
+
+instance Adjustable U1 where adjust = const (const id)
+
+instance Adjustable Par1 where adjust h () = fmap h
+
+instance (Adjustable g, Adjustable f) => Adjustable (f :*: g) where
+  adjust h (Left  fk) (fa :*: ga) = adjust h fk fa :*: ga
+  adjust h (Right gk) (fa :*: ga) = fa :*: adjust h gk ga
+
+instance (Adjustable g, Adjustable f) => Adjustable (g :.: f) where
+  adjust h (gk,fk) = inComp (adjust (adjust h fk) gk)
 
 -- * FoldableWithKey
 
