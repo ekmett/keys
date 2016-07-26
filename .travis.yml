@@ -15,29 +15,31 @@ matrix:
   include:
     - env: CABALVER=1.18 GHCVER=7.4.2
       compiler: ": #GHC 7.4.2"
-      addons: {apt: {packages: [cabal-install-1.18,ghc-7.4.2], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.4.2,alex-3.1.7,happy-1.19.5], sources: [hvr-ghc]}}
     - env: CABALVER=1.18 GHCVER=7.6.3
       compiler: ": #GHC 7.6.3"
-      addons: {apt: {packages: [cabal-install-1.18,ghc-7.6.3], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.6.3,alex-3.1.7,happy-1.19.5], sources: [hvr-ghc]}}
     - env: CABALVER=1.18 GHCVER=7.8.4
       compiler: ": #GHC 7.8.4"
-      addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4,alex-3.1.7,happy-1.19.5], sources: [hvr-ghc]}}
     - env: CABALVER=1.22 GHCVER=7.10.3
       compiler: ": #GHC 7.10.3"
-      addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.3], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.3,alex-3.1.7,happy-1.19.5], sources: [hvr-ghc]}}
     - env: CABALVER=1.24 GHCVER=8.0.1
       compiler: ": #GHC 8.0.1"
-      addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.1], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.1,alex-3.1.7,happy-1.19.5], sources: [hvr-ghc]}}
     - env: CABALVER=1.24 GHCVER=head
       compiler: ": #GHC head"
-      addons: {apt: {packages: [cabal-install-1.24,ghc-head], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-1.24,ghc-head,alex-3.1.7,happy-1.19.5], sources: [hvr-ghc]}}
 
   allow_failures:
-    - env: CABALVER=1.24 GHCVER=head
+   - env: CABALVER=1.24 GHCVER=head
 
 before_install:
  - unset CC
- - export PATH=$HOME/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
+ - export HAPPYVER=1.19.5
+ - export ALEXVER=3.1.7
+ - export PATH=~/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:/opt/happy/$HAPPYVER/bin:/opt/alex/$ALEXVER/bin:$PATH
 
 install:
 # build semigroupoids HEAD until semigroupoids 5.2 is on hackage
@@ -50,8 +52,8 @@ install:
      zcat $HOME/.cabal/packages/hackage.haskell.org/00-index.tar.gz >
           $HOME/.cabal/packages/hackage.haskell.org/00-index.tar;
    fi
- - travis_retry cabal update -v
- - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
+ - travis_retry cabal update
+ - "sed -i  's/^jobs:.*$/jobs: 2/' $HOME/.cabal/config"
  - cabal install --only-dependencies --enable-tests --dry -v keys.cabal semigroupoids/ > installplan.txt
  - sed -i -e '1,/^Resolving /d' installplan.txt; cat installplan.txt
 
@@ -66,7 +68,7 @@ install:
      echo "cabal build-cache MISS";
      rm -rf $HOME/.cabsnap;
      mkdir -p $HOME/.ghc $HOME/.cabal/lib $HOME/.cabal/share $HOME/.cabal/bin;
-     cabal install -j --only-dependencies --enable-tests keys.cabal semigroupoids/;
+     cabal install --only-dependencies --enable-tests keys.cabal semigroupoids/;
      if [ "$GHCVER" = "7.10.3" ]; then cabal install Cabal-1.22.4.0; fi;
    fi
 
@@ -79,38 +81,28 @@ install:
       cp -a $HOME/.cabal/lib $HOME/.cabal/share $HOME/.cabal/bin installplan.txt $HOME/.cabsnap/;
    fi
 
-   cabal install semigroupoids/
+# NB: we don't want semigroupoids/ to be included in the cache
+ - cabal install semigroupoids/
 
-# Here starts the actual work to be performed for the package under
-# test; any command which exits with a non-zero exit code causes the
-# build to fail.
+# Here starts the actual work to be performed for the package under test;
+# any command which exits with a non-zero exit code causes the build to fail.
 script:
- # -v2 provides useful information for debugging
- - cabal configure --enable-tests -v2
-
- # this builds all libraries and executables
- # (including tests/benchmarks)
- - cabal build
-
+ - cabal configure --enable-tests -v2  # -v2 provides useful information for debugging
+ - cabal build   # this builds all libraries and executables (including tests)
  - cabal test
+ - cabal sdist   # tests that a source-distribution can be generated
 
- # tests that a source-distribution can be generated
- - cabal sdist
-
- # check that the generated source-distribution can be built & installed
- - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
-   cd dist/;
-   if [ -f "$SRC_TGZ" ]; then
-      cabal install --force-reinstalls "$SRC_TGZ";
-   else
-      echo "expected '$SRC_TGZ' not found";
-      exit 1;
-   fi
+# Check that the resulting source distribution can be built & installed.
+# If there are no other `.tar.gz` files in `dist`, this can be even simpler:
+# `cabal install --force-reinstalls dist/*-*.tar.gz`
+ - SRC_TGZ=$(cabal info . | awk '{print $2;exit}').tar.gz &&
+   (cd dist && cabal install --force-reinstalls "$SRC_TGZ")
 
 notifications:
   irc:
     channels:
-      - "irc.freenode.org#haskell-lens"
+      - "irc.freenode.org#haskell-keys"
     skip_join: true
     template:
-      - "\x0313keys\x03/\x0306%{branch}\x03 \x0314%{commit}\x03 %{build_url} %{message}"
+      - "\x0313keys\x0f/\x0306%{branch}\x0f \x0314%{commit}\x0f %{message} \x0302\x1f%{build_url}\x0f"
+# EOF
