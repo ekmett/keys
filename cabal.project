@@ -1,1 +1,5 @@
 packages: .
+
+-- use local semigroupoids checkout if found
+--  git clone https://github.com/ekmett/semigroupoids.git
+optional-packages: semigroupoids/
