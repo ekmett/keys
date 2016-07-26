@@ -1,8 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE CPP #-}
 module Data.Key (
   -- * Keys
