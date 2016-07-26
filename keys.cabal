@@ -13,7 +13,7 @@ copyright:     Copyright (C) 2011-2016 Edward A. Kmett
 synopsis:      Keyed functors and containers
 description:   Keyed functors and containers
 build-type:    Simple
-extra-source-files: .travis.yml CHANGELOG.markdown README.markdown
+extra-source-files: .travis.yml CHANGELOG.markdown README.markdown cabal.project
 
 source-repository head
   type: git
