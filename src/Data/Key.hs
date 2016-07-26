@@ -91,8 +91,7 @@ import qualified Data.Map as Map
 #ifdef MIN_VERSION_base_orphans
 import Data.Orphans ()
 #endif
-
-import Data.Tree
+import Data.Proxy
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (fromJust, listToMaybe)
@@ -102,7 +101,9 @@ import Data.Semigroup.Foldable
 import Data.Semigroup.Traversable
 import Data.Sequence (Seq, ViewL(EmptyL), viewl, (|>))
 import qualified Data.Sequence as Seq
+import Data.Tagged
 import Data.Traversable
+import Data.Tree
 import qualified Data.List as List
 import Data.Void
 import GHC.Generics
@@ -118,6 +119,8 @@ type instance Key NonEmpty = Int
 type instance Key U1 = Void
 type instance Key V1 = Void
 type instance Key Par1 = ()
+type instance Key Proxy = Void
+type instance Key (Tagged a) = ()
 type instance Key (g :.: f) = (Key g, Key f)
 type instance Key (f :*: g) = Either (Key f) (Key g)
 type instance Key (f :+: g) = Either (Key f) (Key g)
@@ -150,6 +153,12 @@ instance Keyed Par1 where
 
 instance Keyed (K1 i c) where
   mapWithKey _ (K1 c) = K1 c
+
+instance Keyed (Tagged a) where
+  mapWithKey q (Tagged a) = Tagged (q () a)
+
+instance Keyed Proxy where
+  mapWithKey _ Proxy = Proxy
 
 instance Keyed f => Keyed (M1 i c f) where
   mapWithKey q (M1 f) = M1 (mapWithKey q f)
@@ -203,9 +212,20 @@ instance Zip f => Zip (Cofree f) where
 instance Zip Tree where
   zipWith f (Node a as) (Node b bs) = Node (f a b) (zipWith (zipWith f) as bs)
 
-instance Zip U1 where zipWith = liftA2
+instance Zip Proxy where
+  zipWith = liftA2
 
-instance Zip Par1 where zipWith = liftA2
+instance Zip (Tagged a) where
+  zipWith = liftA2
+
+instance Zip U1 where
+  zipWith = liftA2
+
+instance Zip V1 where
+  zipWith _ v = v `seq` undefined
+
+instance Zip Par1 where
+  zipWith = liftA2
 
 instance (Zip f, Zip g) => Zip (f :*: g) where
   zipWith h (fa :*: ga) (fa' :*: ga') =
@@ -246,9 +266,20 @@ instance ZipWithKey f => ZipWithKey (Cofree f) where
 instance ZipWithKey Tree where
   zipWithKey f (Node a as) (Node b bs) = f Seq.empty a b `Node` zipWithKey (zipWithKey . fmap f . flip (|>)) as bs
 
-instance ZipWithKey U1
+instance ZipWithKey (Tagged a) where
+  zipWithKey f = zipWith  (f ())
 
-instance ZipWithKey Par1
+instance ZipWithKey Proxy where
+  zipWithKey _ _ _ = Proxy
+
+instance ZipWithKey U1 where
+  zipWithKey _ _ _ = U1
+
+instance ZipWithKey V1 where
+  zipWithKey _ u v = u `seq` v `seq` undefined
+
+instance ZipWithKey Par1 where
+  zipWithKey f (Par1 a) (Par1 b) = Par1 (f () a b)
 
 instance ZipWithKey f => ZipWithKey (Rec1 f) where
   zipWithKey f (Rec1 a) (Rec1 b) = Rec1 (zipWithKey f a b)
@@ -256,9 +287,11 @@ instance ZipWithKey f => ZipWithKey (Rec1 f) where
 instance ZipWithKey f => ZipWithKey (M1 i c f) where
   zipWithKey f (M1 a) (M1 b) = M1 (zipWithKey f a b)
 
-instance (Keyed g, Zip g, Keyed f, Zip f) => ZipWithKey (f :*: g)
+instance (ZipWithKey f, ZipWithKey g) => ZipWithKey (f :*: g) where
+  zipWithKey f (as :*: bs) (cs :*: ds) = zipWithKey (f . Left) as cs :*: zipWithKey (f . Right) bs ds
 
-instance (Keyed g, Zip g, Keyed f, Zip f) => ZipWithKey (g :.: f)
+instance (ZipWithKey f, ZipWithKey g) => ZipWithKey (g :.: f) where
+  zipWithKey f (Comp1 xs) (Comp1 ys) = Comp1 $ zipWithKey (\a -> zipWithKey (\b -> f (a,b))) xs ys
 
 infixl 4 <#$>
 
@@ -279,6 +312,12 @@ instance Indexable f => Indexable (Cofree f) where
   index (a :< as) key = case viewl key of
       EmptyL -> a
       k Seq.:< ks -> index (index as k) ks
+
+instance Indexable (Tagged a) where
+  index (Tagged a) () = a
+
+instance Indexable Proxy where
+  index Proxy = absurd
 
 instance Indexable Tree where
   index (Node a as) key = case viewl key of
@@ -322,6 +361,12 @@ instance Lookup f => Lookup (Cofree f) where
     EmptyL -> Just a
     k Seq.:< ks -> lookup k as >>= lookup ks
 
+instance Lookup (Tagged a) where
+  lookup () (Tagged a) = Just a
+
+instance Lookup Proxy where
+  lookup _ _ = Nothing
+
 instance Lookup Tree where
   lookup key (Node a as) = case viewl key of
     EmptyL -> Just a
@@ -336,7 +381,7 @@ instance Lookup f => Lookup (Free f) where
     _ -> Nothing
 
 instance Lookup U1 where
-  lookup = lookupDefault
+  lookup _ _ = Nothing
 
 instance Lookup Par1 where
   lookup = lookupDefault
@@ -385,9 +430,17 @@ instance Adjustable Tree where
     k Seq.:< ks -> a   `Node` adjust (adjust f ks) k as
     _           -> f a `Node` as
 
+instance Adjustable (Tagged a) where
+  adjust f _ (Tagged a) = Tagged (f a)
+  replace _ a _ = Tagged a
+
+instance Adjustable Proxy where
+  adjust _ _ _ = Proxy
+  replace _ _ _ = Proxy
+
 instance Adjustable U1 where
-  adjust _ _ x = x
-  replace _ _ x = x
+  adjust _ _ _ = U1
+  replace _ _ _ = U1
 
 instance Adjustable Par1 where
   adjust h () = fmap h
@@ -444,6 +497,12 @@ instance FoldableWithKey f => FoldableWithKey (Free f) where
 
 instance FoldableWithKey f => FoldableWithKey (Cofree f) where
   foldMapWithKey f (a :< as) = f Seq.empty a `mappend` foldMapWithKey (foldMapWithKey . fmap f . flip (|>)) as
+
+instance FoldableWithKey (Tagged a) where
+  foldMapWithKey f (Tagged a) = f () a
+
+instance FoldableWithKey Proxy where
+  foldMapWithKey _ _ = mempty
 
 instance FoldableWithKey Tree where
   foldMapWithKey f (Node a as) = f Seq.empty a `mappend` foldMapWithKey (foldMapWithKey . fmap f . flip (|>)) as
@@ -545,6 +604,9 @@ instance FoldableWithKey1 f => FoldableWithKey1 (Free f) where
   foldMapWithKey1 f (Pure a) = f Seq.empty a
   foldMapWithKey1 f (Free as) = foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) as
 
+instance FoldableWithKey1 (Tagged a) where
+  foldMapWithKey1 f (Tagged a) = f () a
+
 instance (FoldableWithKey1 f, FoldableWithKey1 g) => FoldableWithKey1 (f :*: g) where
   foldMapWithKey1 f (a :*: b) = foldMapWithKey1 (f . Left) a <> foldMapWithKey1 (f . Right) b
 
@@ -592,6 +654,12 @@ class (Keyed t, FoldableWithKey t, Traversable t) => TraversableWithKey t where
 
   mapWithKeyM :: Monad m => (Key t -> a -> m b) -> t a -> m (t b)
   mapWithKeyM f = unwrapMonad . traverseWithKey (fmap WrapMonad . f)
+
+instance TraversableWithKey (Tagged a) where
+  traverseWithKey f (Tagged a) = Tagged <$> f () a
+
+instance TraversableWithKey Proxy where
+  traverseWithKey _ _ = pure Proxy
 
 instance TraversableWithKey f => TraversableWithKey (Cofree f) where
   traverseWithKey f (a :< as) = (:<) <$> f Seq.empty a <*> traverseWithKey (traverseWithKey . fmap f . flip (|>)) as
@@ -693,6 +761,9 @@ foldMapWithKeyDefault f = getConst . traverseWithKey (fmap Const . f)
 -- * TraversableWithKey1
 class (Traversable1 t, FoldableWithKey1 t, TraversableWithKey t) => TraversableWithKey1 t where
   traverseWithKey1 :: Apply f => (Key t -> a -> f b) -> t a -> f (t b)
+
+instance TraversableWithKey1 (Tagged a) where
+  traverseWithKey1 f (Tagged a) = Tagged <$> f () a
 
 -- instance TraversableWithKey f => TraversableWithKey1 (Cofree f) where
 instance TraversableWithKey1 f => TraversableWithKey1 (Cofree f) where
