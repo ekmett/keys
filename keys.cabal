@@ -11,7 +11,13 @@ homepage:      http://github.com/ekmett/keys/
 bug-reports:   http://github.com/ekmett/keys/issues
 copyright:     Copyright (C) 2011-2016 Edward A. Kmett
 synopsis:      Keyed functors and containers
-description:   Keyed functors and containers
+description:   This package provides a bunch of ad hoc classes for accessing parts of a container.
+               .
+               In practice this package is largely subsumed by the
+               <https://hackage.haskell.org/package/lens lens package>,
+               but it is maintained for now as it has much
+               simpler dependencies.
+
 build-type:    Simple
 extra-source-files: .travis.yml CHANGELOG.markdown README.markdown cabal.project
 tested-with:   GHC == 8.0.1, GHC == 7.10.3, GHC == 7.8.4, GHC == 7.6.3, GHC == 7.4.2
