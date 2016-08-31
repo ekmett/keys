@@ -1126,19 +1126,47 @@ instance Ix i => Adjustable (Array i) where
   adjust f i arr  = arr Array.// [(i, f (arr Array.! i))]
   replace i b arr = arr Array.// [(i, b)]
 
-type instance Key (Functor.Sum f g) = (Key f, Key g)
+type instance Key (Functor.Sum f g) = Either (Key f) (Key g)
+
+instance (Keyed f, Keyed g) => Keyed (Functor.Sum f g) where
+  mapWithKey f (Functor.InL a) = Functor.InL (mapWithKey (f . Left)  a)
+  mapWithKey f (Functor.InR b) = Functor.InR (mapWithKey (f . Right) b)
 
 instance (Indexable f, Indexable g) => Indexable (Functor.Sum f g) where
-  index (Functor.InL a) (x,_) = index a x
-  index (Functor.InR b) (_,y) = index b y
+  index (Functor.InL a) (Left  x) = index a x
+  index (Functor.InL _) (Right _) = error "InL indexed with a Right key"
+  index (Functor.InR b) (Right y) = index b y
+  index (Functor.InR _) (Left  _) = error "InR indexed with a Left key"
 
 instance (Lookup f, Lookup g) => Lookup (Functor.Sum f g) where
-  lookup (x, _) (Functor.InL a) = lookup x a
-  lookup (_, y) (Functor.InR b) = lookup y b
+  lookup (Left  x) (Functor.InL a) = lookup x a
+  lookup (Right y) (Functor.InR b) = lookup y b
+  lookup _         _               = Nothing
 
 instance (Adjustable f, Adjustable g) => Adjustable (Functor.Sum f g) where
-  adjust f (x,_) (Functor.InL a) = Functor.InL (adjust f x a)
-  adjust f (_,y) (Functor.InR b) = Functor.InR (adjust f y b)
+  adjust f (Left  x) (Functor.InL a) = Functor.InL (adjust f x a)
+  adjust f (Right y) (Functor.InR b) = Functor.InR (adjust f y b)
+  adjust _ _         x               = x
+
+  replace (Left  x) v (Functor.InL a) = Functor.InL (replace x v a)
+  replace (Right y) v (Functor.InR b) = Functor.InR (replace y v b)
+  replace _         _ x               = x
+
+instance (FoldableWithKey f, FoldableWithKey g) => FoldableWithKey (Functor.Sum f g) where
+  foldMapWithKey f (Functor.InL a) = foldMapWithKey (f . Left)  a
+  foldMapWithKey f (Functor.InR b) = foldMapWithKey (f . Right) b
+
+instance (FoldableWithKey1 f, FoldableWithKey1 g) => FoldableWithKey1 (Functor.Sum f g) where
+  foldMapWithKey1 f (Functor.InL a) = foldMapWithKey1 (f . Left)  a
+  foldMapWithKey1 f (Functor.InR b) = foldMapWithKey1 (f . Right) b
+
+instance (TraversableWithKey f, TraversableWithKey g) => TraversableWithKey (Functor.Sum f g) where
+  traverseWithKey f (Functor.InL a) = Functor.InL <$> traverseWithKey (f . Left)  a
+  traverseWithKey f (Functor.InR b) = Functor.InR <$> traverseWithKey (f . Right) b
+
+instance (TraversableWithKey1 f, TraversableWithKey1 g) => TraversableWithKey1 (Functor.Sum f g) where
+  traverseWithKey1 f (Functor.InL a) = Functor.InL <$> traverseWithKey1 (f . Left)  a
+  traverseWithKey1 f (Functor.InR b) = Functor.InR <$> traverseWithKey1 (f . Right) b
 
 type instance Key (Product f g) = Either (Key f) (Key g)
 
