@@ -1012,6 +1012,33 @@ instance Adjustable [] where
   adjust _ _ [] = []
   adjust f n (x:xs) = n' `seq` x : adjust f n' xs where n' = n - 1
 
+type instance Key ZipList = Int
+
+instance Zip ZipList where
+  zip       (ZipList xs) (ZipList ys) = ZipList (zip xs ys)
+  zipWith f (ZipList xs) (ZipList ys) = ZipList (zipWith f xs ys)
+
+instance ZipWithKey ZipList where
+  zipWithKey f (ZipList xs) (ZipList ys) = ZipList (zipWithKey f xs ys)
+
+instance Keyed ZipList where
+  mapWithKey f = ZipList . mapWithKey f . getZipList
+
+instance FoldableWithKey ZipList where
+  foldrWithKey f z = foldrWithKey f z . getZipList
+
+instance TraversableWithKey ZipList where
+  traverseWithKey f = fmap ZipList . traverseWithKey f . getZipList
+
+instance Indexable ZipList where
+  index (ZipList xs) i = index xs i
+
+instance Lookup ZipList where
+  lookup i = lookup i . getZipList
+
+instance Adjustable ZipList where
+  adjust f i = ZipList . adjust f i . getZipList
+
 instance Zip NonEmpty where
   zipWith = NonEmpty.zipWith
 
