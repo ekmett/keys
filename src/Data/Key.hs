@@ -193,6 +193,15 @@ gk  :: Key g
 fk  :: Key f
 #endif
 
+-- |
+--
+-- Laws:
+--
+-- @
+-- 'fmap' 'fst' ('zip' u u) = u
+-- 'fmap' 'snd' ('zip' u u) = u
+-- 'zip' ('fmap' 'fst' u) ('fmap' 'snd' u) = u
+-- @
 class Functor f => Zip f where
   zipWith :: (a -> b -> c) -> f a -> f b -> f c
   zipWith f a b = uncurry f <$> zip a b
@@ -203,6 +212,10 @@ class Functor f => Zip f where
   -- zip-like 'ap'
   zap :: f (a -> b) -> f a -> f b
   zap = zipWith id
+
+#if __GLASGOW_HASKELL__ >= 708
+  {-# MINIMAL zipWith | zip #-}
+#endif
 
 instance Zip f => Zip (Cofree f) where
   zipWith f (a :< as) (b :< bs) = f a b :< zipWith (zipWith f) as bs
@@ -488,6 +501,10 @@ class Foldable t => FoldableWithKey t where
 
   foldlWithKey :: (b -> Key t -> a -> b) -> b -> t a -> b
   foldlWithKey f z t = appEndo (getDual (foldMapWithKey (\k a -> Dual (Endo (\b -> f b k a))) t)) z
+
+#if __GLASGOW_HASKELL__ >= 708
+  {-# MINIMAL foldMapWithKey | foldrWithKey #-}
+#endif
 
 instance FoldableWithKey f => FoldableWithKey (Free f) where
   foldMapWithKey f (Pure a) = f Seq.empty a
