@@ -193,6 +193,15 @@ gk  :: Key g
 fk  :: Key f
 #endif
 
+-- |
+--
+-- Laws:
+--
+-- @
+-- 'fmap' 'fst' ('zip' u u) = u
+-- 'fmap' 'snd' ('zip' u u) = u
+-- 'zip' ('fmap' 'fst' u) ('fmap' 'snd' u) = u
+-- @
 class Functor f => Zip f where
   zipWith :: (a -> b -> c) -> f a -> f b -> f c
   zipWith f a b = uncurry f <$> zip a b
