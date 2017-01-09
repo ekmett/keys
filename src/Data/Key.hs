@@ -201,6 +201,7 @@ fk  :: Key f
 -- 'fmap' 'fst' ('zip' u u) = u
 -- 'fmap' 'snd' ('zip' u u) = u
 -- 'zip' ('fmap' 'fst' u) ('fmap' 'snd' u) = u
+-- 'zip' ('flip' (,)) x y = 'zip' y x
 -- @
 class Functor f => Zip f where
   zipWith :: (a -> b -> c) -> f a -> f b -> f c
