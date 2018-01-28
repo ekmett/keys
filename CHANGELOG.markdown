@@ -1,5 +1,5 @@
-next
-----
+3.12 [2018.01.28]
+-----------------
 * Add instances for data types in `GHC.Generics`. Change the existing instances
   for `Data.Functor.Sum` to be consistent with those for `(GHC.Generics.:+:)`.
 * Add instances for `Proxy` and `Tagged`.
@@ -8,7 +8,7 @@ next
 * Allow `free-6`.
 
 3.11
---------
+----
 * Support for `comonad` 5
 * Support for GHC 8
 * Support for `transformers` 0.5
