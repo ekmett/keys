@@ -1,3 +1,7 @@
+next
+----
+* Allow `free-6`.
+
 3.11
 --------
 * Support for `comonad` 5
