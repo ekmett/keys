@@ -5,7 +5,7 @@
 * Add instances for `Proxy` and `Tagged`.
 * Add instances for `ZipList`.
 * Add `MINIMAL` sets for `Zip` and `FoldableWithKey`.
-* Allow `free-6`.
+* Allow `free-5`.
 
 3.11
 ----
