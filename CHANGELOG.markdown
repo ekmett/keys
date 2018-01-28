@@ -1,5 +1,10 @@
 next
 ----
+* Add instances for data types in `GHC.Generics`. Change the existing instances
+  for `Data.Functor.Sum` to be consistent with those for `(GHC.Generics.:+:)`.
+* Add instances for `Proxy` and `Tagged`.
+* Add instances for `ZipList`.
+* Add `MINIMAL` sets for `Zip` and `FoldableWithKey`.
 * Allow `free-6`.
 
 3.11
