@@ -947,7 +947,11 @@ instance Keyed IntMap where
   mapWithKey = IntMap.mapWithKey
 
 instance FoldableWithKey IntMap where
+#if MIN_VERSION_containers(0,5,0)
+  foldrWithKey = IntMap.foldrWithKey
+#else
   foldrWithKey = IntMap.foldWithKey
+#endif
 
 instance TraversableWithKey IntMap where
   traverseWithKey f = fmap IntMap.fromDistinctAscList . traverse (\(k, v) -> (,) k <$> f k v) . IntMap.toAscList
