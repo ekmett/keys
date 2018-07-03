@@ -1,3 +1,8 @@
+next [????.??.??]
+-----------------
+* Allow building with `containers-0.6`.
+* Fix a deprecation warning.
+
 3.12 [2018.01.28]
 -----------------
 * Add instances for data types in `GHC.Generics`. Change the existing instances
