@@ -1,7 +1,7 @@
-next [????.??.??]
------------------
+3.12.1 [2018.07.03]
+-------------------
 * Allow building with `containers-0.6`.
-* Fix a deprecation warning.
+* Avoid the use of deprecated functions from `containers`.
 
 3.12 [2018.01.28]
 -----------------
