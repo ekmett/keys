@@ -20,7 +20,7 @@ description:   This package provides a bunch of ad hoc classes for accessing par
 
 build-type:    Simple
 extra-source-files: .travis.yml CHANGELOG.markdown README.markdown cabal.project
-tested-with:   GHC == 8.6.1
+tested-with:   GHC == 8.6.2
              , GHC == 8.4.4
              , GHC == 8.2.2
              , GHC == 8.0.2
