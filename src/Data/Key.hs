@@ -1,7 +1,8 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE CPP               #-}
 module Data.Key (
   -- * Keys
     Key
@@ -1102,9 +1103,14 @@ instance Indexable Seq where
   index = Seq.index
 
 instance Lookup Seq where
-  lookup i s = case viewl (Seq.drop i s) of
-    EmptyL -> Nothing
-    a Seq.:< _ -> Just a
+  lookup i s =
+#if MIN_VERSION_containers(0,5,8)
+    Seq.lookup i s
+#else
+    case viewl (Seq.drop i s) of
+      EmptyL -> Nothing
+      a Seq.:< _ -> Just a
+#endif
 
 instance Zip Seq where
   zip = Seq.zip
@@ -1114,16 +1120,35 @@ instance ZipWithKey Seq where
   zipWithKey f a b = Seq.zipWith id (Seq.mapWithIndex f a) b
 
 instance Adjustable Seq where
-  adjust = Seq.adjust
 
+  adjust f i xs = 
+#if MIN_VERSION_containers(0,5,8)
+    Seq.adjust' f i xs -- Use the prefered strict version when available
+#else
+    -- Otherwise use a custom adjustment in place of the inefficient Seq.adjust
+    case i `lookup` xs of
+      Nothing -> xs
+      Just x  -> let !x' = f x
+                 in  Seq.update i x' xs
+#endif
+  
 instance Keyed Seq where
   mapWithKey = Seq.mapWithIndex
 
 instance FoldableWithKey Seq where
   foldrWithKey = Seq.foldrWithIndex
+  foldlWithKey = Seq.foldlWithIndex
+#if MIN_VERSION_containers(0,5,8)
+  foldMapWithKey = Seq.foldMapWithIndex
+#endif
 
 instance TraversableWithKey Seq where
-  traverseWithKey f = fmap Seq.fromList . traverseWithKey f . toList
+  traverseWithKey f =
+#if MIN_VERSION_containers(0,5,8)
+    Seq.traverseWithIndex f
+#else
+    fmap Seq.fromList . traverseWithKey f . toList
+#endif
 
 type instance Key (Map k) = k
 
