@@ -1,3 +1,8 @@
+3.12.2 [2019.05.02]
+-------------------
+* Use more efficient implementations of `lookup`, `adjust`, `foldMapWithKey`,
+  and `traverseWithKey` if building against `containers-0.5.8` or later.
+
 3.12.1 [2018.07.03]
 -------------------
 * Allow building with `containers-0.6`.
