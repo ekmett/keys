@@ -53,7 +53,7 @@ library
     unordered-containers >= 0.2.4   && < 0.3
 
   if !impl(ghc >= 7.10)
-    build-depends: void >= 0.4 && < 0.8
+    build-depends: void >= 0.4 && < 0.9
 
   if impl(ghc < 7.6)
     -- GHC.Generics lived in ghc-prim initially
