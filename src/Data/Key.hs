@@ -606,6 +606,9 @@ findWithKey p = Monoid.getFirst . foldMapWithKey (\k x -> Monoid.First (if p k x
 class (Foldable1 t, FoldableWithKey t) => FoldableWithKey1 t where
   foldMapWithKey1 :: Semigroup m => (Key t -> a -> m) -> t a -> m
 
+  toKeyedNonEmptyList :: t a -> NonEmpty (Key t, a)
+  toKeyedNonEmptyList = foldMapWithKey1 $ \k v -> pure (k,v)
+
 -- TODO
 --instance Foldable f => Foldable1 (Cofree f) where
 --  foldMap1 f (a :< as) = appEndo (getDual . foldMap (Dual . diff . foldMap1 f)) (f a)
@@ -1092,6 +1095,8 @@ instance Adjustable NonEmpty where
 instance FoldableWithKey1 NonEmpty where
   foldMapWithKey1 f (x:|[]) = f 0 x
   foldMapWithKey1 f (x:|(y:ys)) = f 0 x <> foldMapWithKey1 (f . (+1)) (y:|ys) -- TODO optimize
+
+  toKeyedNonEmptyList = keyed
 
 instance TraversableWithKey1 NonEmpty where
   traverseWithKey1 f (x:|[]) = (:|[]) <$> f 0 x
