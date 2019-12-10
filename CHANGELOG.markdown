@@ -1,3 +1,9 @@
+next [????.??.??]
+-----------------
+* Add `Keyed`, `Indexable`, `Lookup`, `Adjustable`, `FoldableWithKey`, and
+  `TraversableWithKey` instances for `Control.Applicative.Const` and
+  `Data.Functor.Constant.Constant`.
+
 3.12.2 [2019.05.02]
 -------------------
 * Use more efficient implementations of `lookup`, `adjust`, `foldMapWithKey`,
