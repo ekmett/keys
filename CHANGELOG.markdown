@@ -1,5 +1,5 @@
-next [????.??.??]
------------------
+3.12.3 [2020.01.29]
+-------------------
 * Add `Keyed`, `Indexable`, `Lookup`, `Adjustable`, `FoldableWithKey`, and
   `TraversableWithKey` instances for `Control.Applicative.Const` and
   `Data.Functor.Constant.Constant`.
