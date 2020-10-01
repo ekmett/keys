@@ -67,4 +67,6 @@ library
     Data.Key
 
   ghc-options: -Wall
+  if impl(ghc >= 8.6)
+    ghc-options: -Wno-star-is-type
   hs-source-dirs: src
