@@ -19,7 +19,7 @@ description:   This package provides a bunch of ad hoc classes for accessing par
                simpler dependencies.
 
 build-type:    Simple
-extra-source-files: .travis.yml CHANGELOG.markdown README.markdown cabal.project
+extra-source-files: CHANGELOG.markdown README.markdown cabal.project
 tested-with:   GHC == 8.10.1
              , GHC == 8.8.3
              , GHC == 8.6.5
