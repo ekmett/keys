@@ -75,6 +75,7 @@ import Data.Array (Array)
 import Data.Functor.Identity
 import Data.Functor.Bind
 import Data.Functor.Compose
+import Data.Functor.Constant
 import Data.Functor.Product
 import qualified Data.Functor.Sum as Functor
 import Data.Foldable
@@ -120,6 +121,8 @@ type instance Key V1 = Void
 type instance Key Par1 = ()
 type instance Key Proxy = Void
 type instance Key (Tagged a) = ()
+type instance Key (Const e) = Void
+type instance Key (Constant e) = Void
 type instance Key (g :.: f) = (Key g, Key f)
 type instance Key (f :*: g) = Either (Key f) (Key g)
 type instance Key (f :+: g) = Either (Key f) (Key g)
@@ -158,6 +161,12 @@ instance Keyed (Tagged a) where
 
 instance Keyed Proxy where
   mapWithKey _ Proxy = Proxy
+
+instance Keyed (Const e) where
+  mapWithKey _ (Const a) = Const a
+
+instance Keyed (Constant e) where
+  mapWithKey _ (Constant a) = Constant a
 
 instance Keyed f => Keyed (M1 i c f) where
   mapWithKey q (M1 f) = M1 (mapWithKey q f)
@@ -332,6 +341,12 @@ instance Indexable (Tagged a) where
 instance Indexable Proxy where
   index Proxy = absurd
 
+instance Indexable (Const e) where
+  index _ = absurd
+
+instance Indexable (Constant e) where
+  index _ = absurd
+
 instance Indexable Tree where
   index (Node a as) key = case viewl key of
       EmptyL -> a
@@ -378,6 +393,12 @@ instance Lookup (Tagged a) where
   lookup () (Tagged a) = Just a
 
 instance Lookup Proxy where
+  lookup _ _ = Nothing
+
+instance Lookup (Const e) where
+  lookup _ _ = Nothing
+
+instance Lookup (Constant e) where
   lookup _ _ = Nothing
 
 instance Lookup Tree where
@@ -451,6 +472,14 @@ instance Adjustable Proxy where
   adjust _ _ _ = Proxy
   replace _ _ _ = Proxy
 
+instance Adjustable (Const e) where
+  adjust _ _ x = x
+  replace _ _ x = x
+
+instance Adjustable (Constant e) where
+  adjust _ _ x = x
+  replace _ _ x = x
+
 instance Adjustable U1 where
   adjust _ _ _ = U1
   replace _ _ _ = U1
@@ -519,6 +548,12 @@ instance FoldableWithKey (Tagged a) where
   foldMapWithKey f (Tagged a) = f () a
 
 instance FoldableWithKey Proxy where
+  foldMapWithKey _ _ = mempty
+
+instance FoldableWithKey (Const e) where
+  foldMapWithKey _ _ = mempty
+
+instance FoldableWithKey (Constant e) where
   foldMapWithKey _ _ = mempty
 
 instance FoldableWithKey Tree where
@@ -680,6 +715,12 @@ instance TraversableWithKey (Tagged a) where
 
 instance TraversableWithKey Proxy where
   traverseWithKey _ _ = pure Proxy
+
+instance TraversableWithKey (Const e) where
+  traverseWithKey _ (Const a) = pure (Const a)
+
+instance TraversableWithKey (Constant e) where
+  traverseWithKey _ (Constant a) = pure (Constant a)
 
 instance TraversableWithKey f => TraversableWithKey (Cofree f) where
   traverseWithKey f (a :< as) = (:<) <$> f Seq.empty a <*> traverseWithKey (traverseWithKey . fmap f . flip (|>)) as
@@ -1126,7 +1167,7 @@ instance ZipWithKey Seq where
 
 instance Adjustable Seq where
 
-  adjust f i xs = 
+  adjust f i xs =
 #if MIN_VERSION_containers(0,5,8)
     Seq.adjust' f i xs -- Use the prefered strict version when available
 #else
@@ -1136,7 +1177,7 @@ instance Adjustable Seq where
       Just x  -> let !x' = f x
                  in  Seq.update i x' xs
 #endif
-  
+
 instance Keyed Seq where
   mapWithKey = Seq.mapWithIndex
 

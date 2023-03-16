@@ -1,6 +1,6 @@
 name:          keys
 category:      Data Structures, Containers
-version:       3.12.2
+version:       3.12.3
 license:       BSD3
 cabal-version: >= 1.10
 license-file:  LICENSE
@@ -19,8 +19,11 @@ description:   This package provides a bunch of ad hoc classes for accessing par
                simpler dependencies.
 
 build-type:    Simple
-extra-source-files: .travis.yml CHANGELOG.markdown README.markdown cabal.project
-tested-with:   GHC == 8.8.1
+extra-source-files: CHANGELOG.markdown README.markdown cabal.project
+tested-with:   GHC == 9.2.2
+             , GHC == 9.0.2
+             , GHC == 8.10.7
+             , GHC == 8.8.4
              , GHC == 8.6.5
              , GHC == 8.4.4
              , GHC == 8.2.2
@@ -44,11 +47,11 @@ library
     comonad              >= 4       && < 6,
     containers           >= 0.3     && < 0.7,
     free                 >= 4       && < 6,
-    hashable             >= 1.1.2.3 && < 1.4,
-    semigroupoids        >= 5.2     && < 6,
+    hashable             >= 1.1.2.3 && < 1.5,
+    semigroupoids        >= 5.2     && < 7,
     semigroups           >= 0.8.3.1 && < 1,
     tagged               >= 0.7.3   && < 1,
-    transformers         >= 0.2     && < 0.6,
+    transformers         >= 0.2     && < 0.7,
     transformers-compat  >= 0.3     && < 1,
     unordered-containers >= 0.2.4   && < 0.3
 
@@ -60,10 +63,12 @@ library
     build-depends: ghc-prim == 0.2.*
 
   if !impl(ghc >= 8.0)
-    build-depends: base-orphans >= 0.5.4 && < 0.9
+    build-depends: base-orphans >= 0.5.4 && < 0.10
 
   exposed-modules:
     Data.Key
 
   ghc-options: -Wall
+  if impl(ghc >= 8.6)
+    ghc-options: -Wno-star-is-type
   hs-source-dirs: src
