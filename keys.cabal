@@ -20,7 +20,9 @@ description:   This package provides a bunch of ad hoc classes for accessing par
 
 build-type:    Simple
 extra-source-files: CHANGELOG.markdown README.markdown cabal.project
-tested-with:   GHC == 9.2.2
+tested-with:   GHC == 9.6.2
+             , GHC == 9.4.5
+             , GHC == 9.2.8
              , GHC == 9.0.2
              , GHC == 8.10.7
              , GHC == 8.8.4
