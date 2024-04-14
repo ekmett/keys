@@ -2,3 +2,21 @@ no-tests-no-benchmarks: False
 unconstrained:          False
 -- irc-channels:           irc.freenode.org#haskell-lens
 irc-if-in-origin-repo:  True
+
+constraint-set exclude-comonad
+  constraints: keys -comonad
+
+constraint-set exclude-free
+  constraints: keys -free
+
+constraint-set exclude-semigroupoids
+  constraints: keys -semigroupoids
+
+constraint-set exclude-tagged
+  constraints: keys -tagged
+
+constraint-set exclude-unordered-containers
+  constraints: keys -unordered-containers
+
+constraint-set exclude-all
+  constraints: keys -comonad -free -semigroupoids -tagged -unordered-containers

@@ -39,6 +39,52 @@ source-repository head
   type: git
   location: git://github.com/ekmett/keys.git
 
+flag comonad
+  description:
+    You can disable the use of the `comonad` package using `-f-comonad`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+    .
+    If disabled we will not supply instances of `Comonad`
+    .
+  default: True
+  manual: True
+
+flag free
+  description:
+    You can disable the use of the `free` package using `-f-free`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+    .
+    If disabled we will not supply instances for `Cofree` or `FreeT`.
+    .
+  default: True
+  manual: True
+
+flag semigroupoids
+  description:
+    You can disable the use of the `semigroupoids` package using `-f-semigroupoids`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag tagged
+  description:
+    You can disable the use of the `tagged` package using `-f-tagged`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
+flag unordered-containers
+  description:
+    You can disable the use of the `unordered-containers` package (and also its dependency `hashable`) using `-f-unordered-containers`.
+    .
+    Disabling this is an unsupported configuration, but it may be useful for accelerating builds in sandboxes for expert users.
+  default: True
+  manual: True
+
 library
   default-language: Haskell2010
   other-extensions: CPP, FlexibleInstances, TypeOperators, TypeFamilies
@@ -46,16 +92,9 @@ library
   build-depends:
     array                >= 0.3.0.2 && < 0.6,
     base                 >= 4.5     && < 5,
-    comonad              >= 4       && < 6,
     containers           >= 0.3     && < 0.8,
-    free                 >= 4       && < 6,
-    hashable             >= 1.1.2.3 && < 1.5,
-    semigroupoids        >= 5.2     && < 7,
-    semigroups           >= 0.8.3.1 && < 1,
-    tagged               >= 0.7.3   && < 1,
     transformers         >= 0.2     && < 0.7,
-    transformers-compat  >= 0.3     && < 1,
-    unordered-containers >= 0.2.4   && < 0.3
+    transformers-compat  >= 0.3     && < 1
 
   if !impl(ghc >= 7.10)
     build-depends: void >= 0.4 && < 0.8
@@ -65,7 +104,28 @@ library
     build-depends: ghc-prim == 0.2.*
 
   if !impl(ghc >= 8.0)
-    build-depends: base-orphans >= 0.5.4 && < 0.10
+    build-depends: base-orphans >= 0.5.4 && < 0.10, semigroups >= 0.8.3.1 && < 1
+
+  if impl(ghc >= 9.6)
+    build-depends: transformers >= 0.6.1.0
+
+  if !impl(ghc >= 9.6) && impl(ghc > 7.10)
+    build-depends: foldable1-classes-compat >= 0.1 && < 0.2
+
+  if flag(comonad)
+    build-depends: comonad >= 4 && < 6
+
+  if flag(free)
+    build-depends: free >= 4 && < 6
+
+  if flag(semigroupoids)
+    build-depends: semigroupoids >= 5.2 && < 7
+
+  if flag(tagged)
+    build-depends: tagged >= 0.7.3 && < 1
+
+  if flag(unordered-containers)
+    build-depends: hashable >= 1.1.2.3 && < 1.5, unordered-containers >= 0.2.4 && < 0.3
 
   exposed-modules:
     Data.Key
