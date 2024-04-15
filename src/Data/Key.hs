@@ -44,6 +44,7 @@ module Data.Key (
   , allWithKey -- :: FoldableWithKey t => (Key t -> a -> Bool) -> t a -> Bool
   , findWithKey -- :: FoldableWithKey t => (Key t -> a -> Bool) -> t a -> Maybe a
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
   -- * FoldableWithKey1
   , FoldableWithKey1(..)
 #ifdef MIN_VERSION_semigroupoids
@@ -51,6 +52,7 @@ module Data.Key (
   , forWithKey1_ -- :: (FoldableWithKey1 t, Apply f) => t a -> (Key t -> a -> f b) -> f ()
 #endif
   , foldMapWithKeyDefault1 -- :: (FoldableWithKey1, Monoid m) => (Key t -> a -> m) -> t a -> m
+#endif
 
   -- * TraversableWithKey
   , TraversableWithKey(..)
@@ -89,11 +91,12 @@ import qualified Data.IntMap as IntMap
 import Data.Ix hiding (index)
 import Data.Map (Map)
 import qualified Data.Map as Map
-
 #ifdef MIN_VERSION_base_orphans
 import Data.Orphans ()
 #endif
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 import Data.Proxy
+#endif
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (fromJust, listToMaybe)
@@ -155,7 +158,10 @@ type instance Key NonEmpty = Int
 type instance Key U1 = Void
 type instance Key V1 = Void
 type instance Key Par1 = ()
+
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 type instance Key Proxy = Void
+#endif
 
 #ifdef MIN_VERSION_tagged
 type instance Key (Tagged a) = ()
@@ -205,8 +211,10 @@ instance Keyed (Tagged a) where
   mapWithKey q (Tagged a) = Tagged (q () a)
 #endif
 
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 instance Keyed Proxy where
   mapWithKey _ Proxy = Proxy
+#endif
 
 instance Keyed (Const e) where
   mapWithKey _ (Const a) = Const a
@@ -282,8 +290,10 @@ instance Zip f => Zip (Cofree f) where
 instance Zip Tree where
   zipWith f (Node a as) (Node b bs) = Node (f a b) (zipWith (zipWith f) as bs)
 
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 instance Zip Proxy where
   zipWith = liftA2
+#endif
 
 #ifdef MIN_VERSION_tagged
 instance Zip (Tagged a) where
@@ -345,8 +355,10 @@ instance ZipWithKey (Tagged a) where
   zipWithKey f = zipWith  (f ())
 #endif
 
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 instance ZipWithKey Proxy where
   zipWithKey _ _ _ = Proxy
+#endif
 
 instance ZipWithKey U1 where
   zipWithKey _ _ _ = U1
@@ -396,8 +408,10 @@ instance Indexable (Tagged a) where
   index (Tagged a) () = a
 #endif
 
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 instance Indexable Proxy where
   index Proxy = absurd
+#endif
 
 instance Indexable (Const e) where
   index _ = absurd
@@ -454,8 +468,10 @@ instance Lookup (Tagged a) where
   lookup () (Tagged a) = Just a
 #endif
 
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 instance Lookup Proxy where
   lookup _ _ = Nothing
+#endif
 
 instance Lookup (Const e) where
   lookup _ _ = Nothing
@@ -538,9 +554,11 @@ instance Adjustable (Tagged a) where
   replace _ a _ = Tagged a
 #endif
 
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 instance Adjustable Proxy where
   adjust _ _ _ = Proxy
   replace _ _ _ = Proxy
+#endif
 
 instance Adjustable (Const e) where
   adjust _ _ x = x
@@ -623,8 +641,10 @@ instance FoldableWithKey (Tagged a) where
   foldMapWithKey f (Tagged a) = f () a
 #endif
 
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 instance FoldableWithKey Proxy where
   foldMapWithKey _ _ = mempty
+#endif
 
 instance FoldableWithKey (Const e) where
   foldMapWithKey _ _ = mempty
@@ -712,6 +732,7 @@ findWithKey :: FoldableWithKey t => (Key t -> a -> Bool) -> t a -> Maybe a
 findWithKey p = Monoid.getFirst . foldMapWithKey (\k x -> Monoid.First (if p k x then Just x else Nothing) )
 {-# INLINE findWithKey #-}
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 -- * FoldableWithKey1
 
 class (Foldable1 t, FoldableWithKey t) => FoldableWithKey1 t where
@@ -721,10 +742,8 @@ class (Foldable1 t, FoldableWithKey t) => FoldableWithKey1 t where
 -- TODO
 --instance Foldable f => Foldable1 (Cofree f) where
 --  foldMap1 f (a :< as) = appEndo (getDual . foldMap (Dual . diff . foldMap1 f)) (f a)
-#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance FoldableWithKey1 f => FoldableWithKey1 (Cofree f) where
   foldMapWithKey1 f (a :< as) = f Seq.empty a <> foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) as
-#endif
 #endif
 
 instance FoldableWithKey1 Tree where
@@ -732,11 +751,9 @@ instance FoldableWithKey1 Tree where
   foldMapWithKey1 f (Node a (x:xs)) = f Seq.empty a <> foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) (x:|xs)
 
 #ifdef MIN_VERSION_free
-#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance FoldableWithKey1 f => FoldableWithKey1 (Free f) where
   foldMapWithKey1 f (Pure a) = f Seq.empty a
   foldMapWithKey1 f (Free as) = foldMapWithKey1 (foldMapWithKey1 . fmap f . flip (|>)) as
-#endif
 #endif
 
 #ifdef MIN_VERSION_tagged
@@ -787,6 +804,7 @@ forWithKey1_ = flip traverseWithKey1_
 foldMapWithKeyDefault1 :: (FoldableWithKey1 t, Monoid m) => (Key t -> a -> m) -> t a -> m
 foldMapWithKeyDefault1 f = unwrapMonoid . foldMapWithKey (fmap WrapMonoid . f)
 {-# INLINE foldMapWithKeyDefault1 #-}
+#endif
 
 -- * TraversableWithKey
 
@@ -801,8 +819,10 @@ instance TraversableWithKey (Tagged a) where
   traverseWithKey f (Tagged a) = Tagged <$> f () a
 #endif
 
+#if __GLASGOW_HASKELL__ >= 708 || defined(MIN_VERSION_tagged)
 instance TraversableWithKey Proxy where
   traverseWithKey _ _ = pure Proxy
+#endif
 
 instance TraversableWithKey (Const e) where
   traverseWithKey _ (Const a) = pure (Const a)
@@ -923,11 +943,9 @@ instance TraversableWithKey1 (Tagged a) where
 #endif
 
 #if defined(MIN_VERSION_comonad) && defined(MIN_VERSION_free)
-#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 -- instance TraversableWithKey f => TraversableWithKey1 (Cofree f) where
 instance TraversableWithKey1 f => TraversableWithKey1 (Cofree f) where
   traverseWithKey1 f (a :< as) = (:<) <$> f Seq.empty a <.> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) as
-#endif
 #endif
 
 instance TraversableWithKey1 Tree where
@@ -935,11 +953,9 @@ instance TraversableWithKey1 Tree where
   traverseWithKey1 f (Node a (x:xs)) = (\b (y:|ys) -> Node b (y:ys)) <$> f Seq.empty a <.> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) (x:|xs)
 
 #ifdef MIN_VERSION_free
-#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance TraversableWithKey1 f => TraversableWithKey1 (Free f) where
   traverseWithKey1 f (Pure a) = Pure <$> f Seq.empty a
   traverseWithKey1 f (Free as) = Free <$> traverseWithKey1 (traverseWithKey1 . fmap f . flip (|>)) as
-#endif
 #endif
 
 instance TraversableWithKey1 Par1 where
@@ -992,8 +1008,10 @@ instance Keyed Identity where
 instance FoldableWithKey Identity where
   foldrWithKey f z (Identity a) = f () a z
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance FoldableWithKey1 Identity where
   foldMapWithKey1 f (Identity a) = f () a
+#endif
 
 instance TraversableWithKey Identity where
   traverseWithKey f (Identity a) = Identity <$> f () a
@@ -1023,8 +1041,10 @@ instance Keyed m => Keyed (IdentityT m) where
 instance FoldableWithKey m => FoldableWithKey (IdentityT m) where
   foldrWithKey f z (IdentityT m) = foldrWithKey f z m
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance FoldableWithKey1 m => FoldableWithKey1 (IdentityT m) where
   foldMapWithKey1 f (IdentityT m) = foldMapWithKey1 f m
+#endif
 
 instance TraversableWithKey m => TraversableWithKey (IdentityT m) where
   traverseWithKey f (IdentityT a) = IdentityT <$> traverseWithKey f a
@@ -1144,8 +1164,10 @@ instance (Lookup f, Lookup g) => Lookup (Compose f g) where
 instance (FoldableWithKey f, FoldableWithKey m) => FoldableWithKey (Compose f m) where
   foldMapWithKey f = foldMapWithKey (\k -> foldMapWithKey (f . (,) k)) . getCompose
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance (FoldableWithKey1 f, FoldableWithKey1 m) => FoldableWithKey1 (Compose f m) where
   foldMapWithKey1 f = foldMapWithKey1 (\k -> foldMapWithKey1 (f . (,) k)) . getCompose
+#endif
 
 instance (TraversableWithKey f, TraversableWithKey m) => TraversableWithKey (Compose f m) where
   traverseWithKey f = fmap Compose . traverseWithKey (\k -> traverseWithKey (f . (,) k)) . getCompose
@@ -1250,9 +1272,11 @@ instance Adjustable NonEmpty where
   adjust f 0 (x:|xs) = f x :| xs
   adjust f n (x:|xs) = x :| adjust f (n - 1) xs
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance FoldableWithKey1 NonEmpty where
   foldMapWithKey1 f (x:|[]) = f 0 x
   foldMapWithKey1 f (x:|(y:ys)) = f 0 x <> foldMapWithKey1 (f . (+1)) (y:|ys) -- TODO optimize
+#endif
 
 #ifdef MIN_VERSION_semigroupoids
 instance TraversableWithKey1 NonEmpty where
@@ -1392,9 +1416,11 @@ instance (FoldableWithKey f, FoldableWithKey g) => FoldableWithKey (Functor.Sum 
   foldMapWithKey f (Functor.InL a) = foldMapWithKey (f . Left)  a
   foldMapWithKey f (Functor.InR b) = foldMapWithKey (f . Right) b
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance (FoldableWithKey1 f, FoldableWithKey1 g) => FoldableWithKey1 (Functor.Sum f g) where
   foldMapWithKey1 f (Functor.InL a) = foldMapWithKey1 (f . Left)  a
   foldMapWithKey1 f (Functor.InR b) = foldMapWithKey1 (f . Right) b
+#endif
 
 instance (TraversableWithKey f, TraversableWithKey g) => TraversableWithKey (Functor.Sum f g) where
   traverseWithKey f (Functor.InL a) = Functor.InL <$> traverseWithKey (f . Left)  a
@@ -1429,8 +1455,10 @@ instance (ZipWithKey f, ZipWithKey g) => ZipWithKey (Product f g) where
 instance (FoldableWithKey f, FoldableWithKey g) => FoldableWithKey (Product f g) where
   foldMapWithKey f (Pair a b) = foldMapWithKey (f . Left) a `mappend` foldMapWithKey (f . Right) b
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance (FoldableWithKey1 f, FoldableWithKey1 g) => FoldableWithKey1 (Product f g) where
   foldMapWithKey1 f (Pair a b) = foldMapWithKey1 (f . Left) a <> foldMapWithKey1 (f . Right) b
+#endif
 
 instance (TraversableWithKey f, TraversableWithKey g) => TraversableWithKey (Product f g) where
   traverseWithKey f (Pair a b) = Pair <$> traverseWithKey (f . Left) a <*> traverseWithKey (f . Right) b
@@ -1454,8 +1482,10 @@ instance Keyed ((,) k) where
 instance FoldableWithKey ((,) k) where
   foldMapWithKey = uncurry
 
+#if __GLASGOW_HASKELL__ > 710 || defined(MIN_VERSION_semigroupoids)
 instance FoldableWithKey1 ((,) k) where
   foldMapWithKey1 = uncurry
+#endif
 
 instance TraversableWithKey ((,) k) where
   traverseWithKey f (k, a) = (,) k <$> f k a
