@@ -1,3 +1,7 @@
+next [????.??.??]
+-----------------
+* Require building with GHC 8.0 or later.
+
 3.12.3 [2020.01.29]
 -------------------
 * Add `Keyed`, `Indexable`, `Lookup`, `Adjustable`, `FoldableWithKey`, and
