@@ -36,7 +36,7 @@ tested-with:   GHC == 9.12.1
 
 source-repository head
   type: git
-  location: git://github.com/ekmett/keys.git
+  location: https://github.com/ekmett/keys.git
 
 library
   default-language: Haskell2010
