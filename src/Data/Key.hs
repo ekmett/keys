@@ -1349,11 +1349,7 @@ instance (Eq k, Hashable k) => Zip (HashMap k) where
   zipWith = HashMap.intersectionWith
 
 instance (Eq k, Hashable k) => ZipWithKey (HashMap k) where
-  zipWithKey f a b = HashMap.foldlWithKey' go HashMap.empty a
-    where
-      go m k v = case lookup k b of
-                   Just w -> HashMap.insert k (f k v w) m
-                   _      -> m
+  zipWithKey = HashMap.intersectionWithKey
 
 instance FoldableWithKey (HashMap k) where
   foldrWithKey = HashMap.foldrWithKey
