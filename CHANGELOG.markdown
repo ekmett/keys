@@ -1,5 +1,7 @@
 next [????.??.??]
 -----------------
+* Use a more efficient implementation for `zipWithKey` in the `ZipWithKey`
+  instance for `HashMap`.
 * Remove unused `semigroups` and `transformers-compat` dependencies.
 
 3.12.4 [2024.12.06]
