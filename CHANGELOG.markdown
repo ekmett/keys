@@ -1,5 +1,5 @@
-next [????.??.??]
------------------
+3.12.5 [2026.01.10]
+-------------------
 * Use a more efficient implementation for `zipWithKey` in the `ZipWithKey`
   instance for `HashMap`.
 * Remove unused `semigroups` and `transformers-compat` dependencies.
