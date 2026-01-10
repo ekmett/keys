@@ -1,3 +1,7 @@
+next [????.??.??]
+-----------------
+* Remove unused `semigroups` and `transformers-compat` dependencies.
+
 3.12.4 [2024.12.06]
 -------------------
 * Require building with GHC 8.0 or later.
